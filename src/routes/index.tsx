@@ -21,9 +21,6 @@ export const Route = createFileRoute("/")({
 type KioskUser = {
   id: string;
   name: string;
-  role: string;
-  access_level: string;
-  status: string | null;
 };
 
 const PIN_LENGTH = 4;
