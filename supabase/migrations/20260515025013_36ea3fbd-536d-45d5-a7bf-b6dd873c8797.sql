@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "view_users" ON public.users;
