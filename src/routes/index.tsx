@@ -1,38 +1,30 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { Delete } from "lucide-react";
 import { Logo } from "@/components/Logo";
-import { listKioskUsers, verifyPin } from "@/lib/auth.functions";
+import { supabase } from "@/integrations/supabase/client";
+import { setKioskUser, WORKSHOP_ID, type KioskUser } from "@/lib/kiosk-session";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Sign in — MotorON.ai" },
-      {
-        name: "description",
-        content: "Workshop kiosk login for MotorON.ai.",
-      },
+      { name: "description", content: "Workshop kiosk login for MotorON.ai." },
     ],
   }),
   component: LoginPage,
 });
 
-type KioskUser = {
-  id: string;
-  name: string;
-};
+type PickerUser = { id: string; name: string };
 
 const PIN_LENGTH = 4;
 
 function LoginPage() {
   const navigate = useNavigate();
-  const fetchUsers = useServerFn(listKioskUsers);
-  const checkPin = useServerFn(verifyPin);
 
-  const [users, setUsers] = useState<KioskUser[] | null>(null);
+  const [users, setUsers] = useState<PickerUser[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<KioskUser | null>(null);
+  const [selected, setSelected] = useState<PickerUser | null>(null);
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
@@ -40,34 +32,21 @@ function LoginPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchUsers()
-      .then((rows) => {
-        if (!cancelled) setUsers(rows as KioskUser[]);
-      })
-      .catch((e) => {
-        if (!cancelled) setLoadError(e?.message ?? "Failed to load users");
-      });
+    (async () => {
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, name")
+        .eq("workshop_id", WORKSHOP_ID)
+        .eq("status", "active")
+        .order("name", { ascending: true });
+      if (cancelled) return;
+      if (error) setLoadError(error.message);
+      else setUsers(data ?? []);
+    })();
     return () => {
       cancelled = true;
     };
-  }, [fetchUsers]);
-
-  const submit = async (full: string) => {
-    if (!selected || checking) return;
-    setChecking(true);
-    try {
-      const res = await checkPin({ data: { userId: selected.id, pin: full } });
-      if (res.ok) {
-        navigate({ to: "/home" });
-      } else {
-        triggerError();
-      }
-    } catch {
-      triggerError();
-    } finally {
-      setChecking(false);
-    }
-  };
+  }, []);
 
   const triggerError = () => {
     setError("Incorrect PIN. Try again.");
@@ -76,15 +55,38 @@ function LoginPage() {
     setTimeout(() => setShake(false), 450);
   };
 
+  const submit = async (full: string) => {
+    if (!selected || checking) return;
+    setChecking(true);
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("workshop_id", WORKSHOP_ID)
+        .eq("id", selected.id)
+        .eq("pin", full)
+        .maybeSingle();
+
+      if (error || !data) {
+        triggerError();
+        return;
+      }
+      setKioskUser(data as KioskUser);
+      navigate({ to: "/home" });
+    } catch {
+      triggerError();
+    } finally {
+      setChecking(false);
+    }
+  };
+
   const press = (digit: string) => {
     if (checking) return;
     setError(null);
     setPin((prev) => {
       if (prev.length >= PIN_LENGTH) return prev;
       const next = prev + digit;
-      if (next.length === PIN_LENGTH) {
-        void submit(next);
-      }
+      if (next.length === PIN_LENGTH) void submit(next);
       return next;
     });
   };
@@ -115,17 +117,12 @@ function LoginPage() {
               Select your profile
             </h1>
 
-            {loadError && (
-              <p className="text-destructive text-sm">{loadError}</p>
-            )}
+            {loadError && <p className="text-destructive text-sm">{loadError}</p>}
 
             {!users && !loadError && (
               <ul className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <li
-                    key={i}
-                    className="h-16 rounded-xl bg-card animate-pulse"
-                  />
+                  <li key={i} className="h-16 rounded-xl bg-card animate-pulse" />
                 ))}
               </ul>
             )}
@@ -172,13 +169,9 @@ function LoginPage() {
             <p className="mt-4 font-display text-3xl text-foreground">
               {selected.name}
             </p>
-            <p className="text-xs text-muted-foreground mb-6">
-              Enter your PIN
-            </p>
+            <p className="text-xs text-muted-foreground mb-6">Enter your PIN</p>
 
-            <div
-              className={`flex gap-4 mb-2 ${shake ? "animate-shake" : ""}`}
-            >
+            <div className={`flex gap-4 mb-2 ${shake ? "animate-shake" : ""}`}>
               {Array.from({ length: PIN_LENGTH }).map((_, i) => {
                 const filled = i < pin.length;
                 const errored = !!error;
