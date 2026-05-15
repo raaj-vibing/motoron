@@ -152,9 +152,6 @@ function LoginPage() {
                         <span className="block text-foreground font-medium">
                           {u.name}
                         </span>
-                        <span className="block text-xs text-muted-foreground capitalize">
-                          {u.role}
-                        </span>
                       </span>
                     </button>
                   </li>
