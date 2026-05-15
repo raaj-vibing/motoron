@@ -72,14 +72,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "MotorON.ai" },
+      { name: "description", content: "Your Workshop. Always ON." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "MotorON.ai" },
+      { property: "og:description", content: "Your Workshop. Always ON." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "MotorON.ai" },
+      { name: "twitter:description", content: "Your Workshop. Always ON." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/1wpJ81eCBsgB3lDdP6xIfcMKGIg2/social-images/social-1778803676269-Screenshot_2026-05-14_at_8.06.55_PM.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/1wpJ81eCBsgB3lDdP6xIfcMKGIg2/social-images/social-1778803676269-Screenshot_2026-05-14_at_8.06.55_PM.webp" },
     ],
     links: [
       {
