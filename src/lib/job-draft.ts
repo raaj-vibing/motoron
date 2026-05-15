@@ -21,12 +21,23 @@ export type DraftVehicle = {
   last_mileage: number | null;
 };
 
+export type VehicleFormData = {
+  type: string; // "Bike" | "Car" | "Auto" | "Other"
+  make: string;
+  model: string;
+  year: number | null;
+  colour: string | null;
+  licence_plate: string;
+  current_mileage: number;
+};
+
 export type JobDraft = {
   phone: string;
   customer: DraftCustomer | null; // null = new customer
   newCustomerName?: string;
   address?: string | null;
-  vehicle: DraftVehicle | null; // null = new vehicle
+  vehicle: DraftVehicle | null; // null = new vehicle (existing match if not null)
+  vehicleForm?: VehicleFormData; // populated after Step 2
 };
 
 export function getJobDraft(): JobDraft | null {

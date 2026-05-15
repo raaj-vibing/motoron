@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as JobsNewRouteImport } from './routes/jobs.new'
 import { Route as JobsActiveRouteImport } from './routes/jobs.active'
 import { Route as JobsNewVehicleRouteImport } from './routes/jobs.new.vehicle'
+import { Route as JobsNewComplaintRouteImport } from './routes/jobs.new.complaint'
 
 const WorkshopRoute = WorkshopRouteImport.update({
   id: '/workshop',
@@ -46,6 +47,11 @@ const JobsNewVehicleRoute = JobsNewVehicleRouteImport.update({
   path: '/vehicle',
   getParentRoute: () => JobsNewRoute,
 } as any)
+const JobsNewComplaintRoute = JobsNewComplaintRouteImport.update({
+  id: '/complaint',
+  path: '/complaint',
+  getParentRoute: () => JobsNewRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -53,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/workshop': typeof WorkshopRoute
   '/jobs/active': typeof JobsActiveRoute
   '/jobs/new': typeof JobsNewRouteWithChildren
+  '/jobs/new/complaint': typeof JobsNewComplaintRoute
   '/jobs/new/vehicle': typeof JobsNewVehicleRoute
 }
 export interface FileRoutesByTo {
@@ -61,6 +68,7 @@ export interface FileRoutesByTo {
   '/workshop': typeof WorkshopRoute
   '/jobs/active': typeof JobsActiveRoute
   '/jobs/new': typeof JobsNewRouteWithChildren
+  '/jobs/new/complaint': typeof JobsNewComplaintRoute
   '/jobs/new/vehicle': typeof JobsNewVehicleRoute
 }
 export interface FileRoutesById {
@@ -70,6 +78,7 @@ export interface FileRoutesById {
   '/workshop': typeof WorkshopRoute
   '/jobs/active': typeof JobsActiveRoute
   '/jobs/new': typeof JobsNewRouteWithChildren
+  '/jobs/new/complaint': typeof JobsNewComplaintRoute
   '/jobs/new/vehicle': typeof JobsNewVehicleRoute
 }
 export interface FileRouteTypes {
@@ -80,6 +89,7 @@ export interface FileRouteTypes {
     | '/workshop'
     | '/jobs/active'
     | '/jobs/new'
+    | '/jobs/new/complaint'
     | '/jobs/new/vehicle'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -88,6 +98,7 @@ export interface FileRouteTypes {
     | '/workshop'
     | '/jobs/active'
     | '/jobs/new'
+    | '/jobs/new/complaint'
     | '/jobs/new/vehicle'
   id:
     | '__root__'
@@ -96,6 +107,7 @@ export interface FileRouteTypes {
     | '/workshop'
     | '/jobs/active'
     | '/jobs/new'
+    | '/jobs/new/complaint'
     | '/jobs/new/vehicle'
   fileRoutesById: FileRoutesById
 }
@@ -151,14 +163,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JobsNewVehicleRouteImport
       parentRoute: typeof JobsNewRoute
     }
+    '/jobs/new/complaint': {
+      id: '/jobs/new/complaint'
+      path: '/complaint'
+      fullPath: '/jobs/new/complaint'
+      preLoaderRoute: typeof JobsNewComplaintRouteImport
+      parentRoute: typeof JobsNewRoute
+    }
   }
 }
 
 interface JobsNewRouteChildren {
+  JobsNewComplaintRoute: typeof JobsNewComplaintRoute
   JobsNewVehicleRoute: typeof JobsNewVehicleRoute
 }
 
 const JobsNewRouteChildren: JobsNewRouteChildren = {
+  JobsNewComplaintRoute: JobsNewComplaintRoute,
   JobsNewVehicleRoute: JobsNewVehicleRoute,
 }
 
