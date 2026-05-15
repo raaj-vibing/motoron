@@ -163,6 +163,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "job_cards_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "workshop_members"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "job_cards_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -418,7 +425,50 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      workshop_members: {
+        Row: {
+          access_level: string | null
+          created_at: string | null
+          email: string | null
+          id: string | null
+          name: string | null
+          phone: string | null
+          role: string | null
+          status: string | null
+          workshop_id: string | null
+        }
+        Insert: {
+          access_level?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+          name?: string | null
+          phone?: string | null
+          role?: string | null
+          status?: string | null
+          workshop_id?: string | null
+        }
+        Update: {
+          access_level?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+          name?: string | null
+          phone?: string | null
+          role?: string | null
+          status?: string | null
+          workshop_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "users_workshop_id_fkey"
+            columns: ["workshop_id"]
+            isOneToOne: false
+            referencedRelation: "workshops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       [_ in never]: never
