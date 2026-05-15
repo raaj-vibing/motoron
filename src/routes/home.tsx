@@ -1,27 +1,27 @@
-import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Logo } from "@/components/Logo";
-import { getKioskSession, signOutKiosk } from "@/lib/auth.functions";
+import { clearKioskUser, getKioskUser, type KioskUser } from "@/lib/kiosk-session";
 
 export const Route = createFileRoute("/home")({
-  head: () => ({
-    meta: [{ title: "Home — MotorON.ai" }],
-  }),
-  beforeLoad: async () => {
-    const session = await getKioskSession();
-    if (!session.authenticated) {
-      throw redirect({ to: "/" });
-    }
-    return { user: session.user };
-  },
-  loader: ({ context }) => ({ user: context.user }),
+  head: () => ({ meta: [{ title: "Home — MotorON.ai" }] }),
   component: HomePlaceholder,
 });
 
 function HomePlaceholder() {
-  const { user } = Route.useLoaderData();
   const navigate = useNavigate();
-  const signOut = useServerFn(signOutKiosk);
+  const [user, setUser] = useState<KioskUser | null>(null);
+
+  useEffect(() => {
+    const u = getKioskUser();
+    if (!u) {
+      navigate({ to: "/" });
+      return;
+    }
+    setUser(u);
+  }, [navigate]);
+
+  if (!user) return null;
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
@@ -34,8 +34,8 @@ function HomePlaceholder() {
       </p>
       <button
         type="button"
-        onClick={async () => {
-          await signOut();
+        onClick={() => {
+          clearKioskUser();
           navigate({ to: "/" });
         }}
         className="mt-8 text-xs uppercase tracking-widest text-accent"
