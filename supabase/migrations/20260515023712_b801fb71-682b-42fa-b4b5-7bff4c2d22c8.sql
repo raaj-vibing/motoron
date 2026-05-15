@@ -1,0 +1,1 @@
+ALTER VIEW public.workshop_members SET (security_invoker = on);
