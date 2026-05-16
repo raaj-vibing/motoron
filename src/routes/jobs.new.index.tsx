@@ -9,7 +9,7 @@ import {
   type DraftVehicle,
 } from "@/lib/job-draft";
 
-export const Route = createFileRoute("/jobs/new")({
+export const Route = createFileRoute("/jobs/new/")({
   head: () => ({ meta: [{ title: "New Job — MotorON.ai" }] }),
   component: NewJobPhoneEntry,
 });
