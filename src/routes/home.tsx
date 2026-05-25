@@ -29,6 +29,7 @@ function HomePage() {
   const isAdmin = user.access_level === "full-admin";
 
   const logout = async () => {
+    clearJobDraft();
     await doLogout();
     navigate({ to: "/" });
   };
