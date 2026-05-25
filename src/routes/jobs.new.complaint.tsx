@@ -163,10 +163,10 @@ function ComplaintStep() {
           <ArrowLeft className="w-6 h-6" />
         </button>
         <h1 className="font-display text-[24px] tracking-wide text-foreground">
-          Customer Complaint
+          {isEdit ? "Edit Complaint" : "Customer Complaint"}
         </h1>
         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
-          Step 3 of 3
+          {isEdit ? "Edit · 2 of 2" : "Step 3 of 3"}
         </span>
       </header>
 
@@ -241,10 +241,12 @@ function ComplaintStep() {
         <button
           type="button"
           disabled={submitting}
-          onClick={handleCreate}
+          onClick={handleSubmit}
           className="w-full h-14 rounded-lg bg-primary text-white font-display text-[22px] tracking-wide active:scale-[0.98] transition disabled:opacity-60"
         >
-          {submitting ? "Creating…" : "Create Job"}
+          {submitting
+            ? isEdit ? "Updating…" : "Creating…"
+            : isEdit ? "Update Job" : "Create Job"}
         </button>
       </div>
 
