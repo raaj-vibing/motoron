@@ -612,7 +612,7 @@ export const updateJobStatus = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireSessionUser();
     const patch: {
-      status: StatusKey;
+      status: "pending" | "in_progress" | "repair_completed" | "closed";
       repair_completed_at?: string;
       picked_up_at?: string;
     } = { status: data.status };
