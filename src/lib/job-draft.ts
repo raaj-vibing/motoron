@@ -38,6 +38,10 @@ export type JobDraft = {
   address?: string | null;
   vehicle: DraftVehicle | null; // null = new vehicle (existing match if not null)
   vehicleForm?: VehicleFormData; // populated after Step 2
+  editJobId?: string; // when set, wizard is editing an existing job card
+  initialComplaint?: string;
+  initialPickupDate?: string | null;
+  initialMileage?: number | null;
 };
 
 export function getJobDraft(): JobDraft | null {
