@@ -1,8 +1,17 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { Logo } from "@/components/Logo";
+import { getCurrentKioskUser } from "@/lib/kiosk.functions";
 
 export const Route = createFileRoute("/workshop")({
   head: () => ({ meta: [{ title: "Workshop — MotorON.ai" }] }),
+  beforeLoad: async () => {
+    const user = await getCurrentKioskUser();
+    if (!user) throw redirect({ to: "/" });
+    if (user.access_level !== "full-admin") {
+      throw redirect({ to: "/home" });
+    }
+    return { kioskUser: user };
+  },
   component: WorkshopPlaceholder,
 });
 

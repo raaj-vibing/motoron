@@ -1,9 +1,13 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { Delete } from "lucide-react";
 import { Logo } from "@/components/Logo";
-import { supabase } from "@/integrations/supabase/client";
-import { setKioskUser, WORKSHOP_ID, type KioskUser } from "@/lib/kiosk-session";
+import {
+  getCurrentKioskUser,
+  listKioskUsers,
+  verifyPin,
+} from "@/lib/kiosk.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -12,6 +16,10 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Workshop kiosk login for MotorON.ai." },
     ],
   }),
+  beforeLoad: async () => {
+    const user = await getCurrentKioskUser();
+    if (user) throw redirect({ to: "/home" });
+  },
   component: LoginPage,
 });
 
@@ -21,6 +29,8 @@ const PIN_LENGTH = 4;
 
 function LoginPage() {
   const navigate = useNavigate();
+  const fetchUsers = useServerFn(listKioskUsers);
+  const submitPin = useServerFn(verifyPin);
 
   const [users, setUsers] = useState<PickerUser[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -32,21 +42,17 @@ function LoginPage() {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from("users")
-        .select("id, name")
-        .eq("workshop_id", WORKSHOP_ID)
-        .eq("status", "active")
-        .order("name", { ascending: true });
-      if (cancelled) return;
-      if (error) setLoadError(error.message);
-      else setUsers(data ?? []);
-    })();
+    fetchUsers()
+      .then((u) => {
+        if (!cancelled) setUsers(u);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : "Failed to load users");
+      });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [fetchUsers]);
 
   const triggerError = () => {
     setError("Incorrect PIN. Try again.");
@@ -59,19 +65,11 @@ function LoginPage() {
     if (!selected || checking) return;
     setChecking(true);
     try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("workshop_id", WORKSHOP_ID)
-        .eq("id", selected.id)
-        .eq("pin", full)
-        .maybeSingle();
-
-      if (error || !data) {
+      const result = await submitPin({ data: { userId: selected.id, pin: full } });
+      if (!result.ok) {
         triggerError();
         return;
       }
-      setKioskUser(data as KioskUser);
       navigate({ to: "/home" });
     } catch {
       triggerError();

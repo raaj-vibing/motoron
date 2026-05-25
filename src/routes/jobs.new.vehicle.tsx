@@ -1,8 +1,12 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Check, Search } from "lucide-react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  getCurrentKioskUser,
+  updateVehicleMileage,
+} from "@/lib/kiosk.functions";
 import {
   getJobDraft,
   setJobDraft,
@@ -12,6 +16,11 @@ import {
 
 export const Route = createFileRoute("/jobs/new/vehicle")({
   head: () => ({ meta: [{ title: "Vehicle Details — MotorON.ai" }] }),
+  beforeLoad: async () => {
+    const user = await getCurrentKioskUser();
+    if (!user) throw redirect({ to: "/" });
+    return { kioskUser: user };
+  },
   component: VehicleDetailsStep,
 });
 
@@ -47,6 +56,7 @@ type Errors = Partial<Record<keyof VehicleFormData, string>>;
 
 function VehicleDetailsStep() {
   const navigate = useNavigate();
+  const saveMileage = useServerFn(updateVehicleMileage);
   const [draft, setDraft] = useState<JobDraft | null>(null);
 
   const [type, setType] = useState<VehicleType | "">("");
@@ -131,12 +141,15 @@ function VehicleDetailsStep() {
     setSaving(true);
     try {
       if (draft.vehicle) {
-        const { error } = await supabase
-          .from("vehicles")
-          .update({ last_mileage: form.current_mileage })
-          .eq("id", draft.vehicle.id);
-        if (error) {
-          setErrors({ current_mileage: error.message });
+        try {
+          await saveMileage({
+            data: { vehicleId: draft.vehicle.id, mileage: form.current_mileage },
+          });
+        } catch (err) {
+          setErrors({
+            current_mileage:
+              err instanceof Error ? err.message : "Failed to save mileage",
+          });
           return;
         }
       }

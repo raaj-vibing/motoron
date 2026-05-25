@@ -1,10 +1,15 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { Logo } from "@/components/Logo";
-import { clearKioskUser, getKioskUser, type KioskUser } from "@/lib/kiosk-session";
+import { getCurrentKioskUser, logoutKiosk } from "@/lib/kiosk.functions";
 
 export const Route = createFileRoute("/home")({
   head: () => ({ meta: [{ title: "Home — MotorON.ai" }] }),
+  beforeLoad: async () => {
+    const user = await getCurrentKioskUser();
+    if (!user) throw redirect({ to: "/" });
+    return { kioskUser: user };
+  },
   component: HomePage,
 });
 
@@ -16,30 +21,19 @@ function greetingFor(date: Date, name: string) {
 
 function HomePage() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<KioskUser | null>(null);
-
-  useEffect(() => {
-    const u = getKioskUser();
-    if (!u) {
-      navigate({ to: "/" });
-      return;
-    }
-    setUser(u);
-  }, [navigate]);
-
-  if (!user) return null;
+  const { kioskUser: user } = Route.useRouteContext();
+  const doLogout = useServerFn(logoutKiosk);
 
   const firstName = user.name.split(" ")[0] ?? user.name;
   const isAdmin = user.access_level === "full-admin";
 
-  const logout = () => {
-    clearKioskUser();
+  const logout = async () => {
+    await doLogout();
     navigate({ to: "/" });
   };
 
   return (
     <main className="min-h-screen w-full flex flex-col bg-background">
-      {/* Header */}
       <header className="w-full px-5 pt-6 pb-2 flex items-center justify-between">
         <Logo className="text-3xl" />
         <span className="text-muted-foreground text-sm font-medium truncate max-w-[40%] text-right">
@@ -47,12 +41,10 @@ function HomePage() {
         </span>
       </header>
 
-      {/* Greeting */}
       <p className="px-5 mt-2 text-muted-foreground text-[18px] font-body">
         {greetingFor(new Date(), firstName)}
       </p>
 
-      {/* Buttons */}
       <section className="flex-1 flex flex-col justify-center gap-4 px-6">
         <HomeButton
           variant="primary"
@@ -79,7 +71,6 @@ function HomePage() {
         )}
       </section>
 
-      {/* Logout */}
       <footer className="w-full pb-8 pt-4 flex justify-center">
         <button
           type="button"
@@ -114,9 +105,7 @@ function HomeButton({
       className={[
         "w-full min-h-[88px] rounded-[14px] px-5 py-4 flex items-center gap-4 text-left",
         "transition-transform duration-100 ease-out active:scale-[0.97]",
-        isPrimary
-          ? "bg-primary"
-          : "bg-card border-2 border-primary",
+        isPrimary ? "bg-primary" : "bg-card border-2 border-primary",
       ].join(" ")}
     >
       <span className="text-4xl leading-none shrink-0" aria-hidden>

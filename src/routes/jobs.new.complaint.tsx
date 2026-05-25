@@ -1,10 +1,16 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
+import { getCurrentKioskUser } from "@/lib/kiosk.functions";
 import { getJobDraft, type JobDraft } from "@/lib/job-draft";
 
 export const Route = createFileRoute("/jobs/new/complaint")({
   head: () => ({ meta: [{ title: "Complaint — MotorON.ai" }] }),
+  beforeLoad: async () => {
+    const user = await getCurrentKioskUser();
+    if (!user) throw redirect({ to: "/" });
+    return { kioskUser: user };
+  },
   component: ComplaintStepPlaceholder,
 });
 
