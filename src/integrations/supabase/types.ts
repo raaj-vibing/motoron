@@ -375,6 +375,7 @@ export type Database = {
       workshops: {
         Row: {
           address: string | null
+          auto_archive_months: number
           completed_template: string | null
           created_at: string | null
           dropoff_template: string | null
@@ -391,6 +392,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          auto_archive_months?: number
           completed_template?: string | null
           created_at?: string | null
           dropoff_template?: string | null
@@ -407,6 +409,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          auto_archive_months?: number
           completed_template?: string | null
           created_at?: string | null
           dropoff_template?: string | null
