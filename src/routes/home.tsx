@@ -2,6 +2,7 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Logo } from "@/components/Logo";
 import { getCurrentKioskUser, logoutKiosk } from "@/lib/kiosk.functions";
+import { clearJobDraft } from "@/lib/job-draft";
 
 export const Route = createFileRoute("/home")({
   head: () => ({ meta: [{ title: "Home — MotorON.ai" }] }),
