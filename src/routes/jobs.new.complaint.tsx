@@ -46,9 +46,6 @@ function ComplaintStepPlaceholder() {
         <p className="text-muted-foreground text-sm">
           Step 3 placeholder — complaint form will live here.
         </p>
-        <pre className="mt-6 p-4 rounded-lg bg-card border border-border text-xs text-foreground overflow-auto">
-{JSON.stringify(draft, null, 2)}
-        </pre>
       </section>
     </main>
   );
