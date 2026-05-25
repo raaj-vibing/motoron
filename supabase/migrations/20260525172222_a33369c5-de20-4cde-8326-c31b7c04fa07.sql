@@ -1,0 +1,1 @@
+ALTER TABLE public.workshops ADD COLUMN IF NOT EXISTS auto_archive_months integer NOT NULL DEFAULT 6;
