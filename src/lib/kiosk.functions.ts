@@ -352,3 +352,101 @@ export const createJobCard = createServerFn({ method: "POST" })
       vehicleModel: vf.model,
     };
   });
+
+// --- Protected: list active job cards for the workshop ---
+export type ActiveJobDTO = {
+  id: string;
+  job_number: string;
+  status: string;
+  dropped_off_at: string | null;
+  customer_name: string;
+  vehicle_make: string;
+  vehicle_model: string;
+  total_amount: number;
+};
+
+export const listActiveJobs = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ jobs: ActiveJobDTO[]; threshold: number }> => {
+    const user = await requireSessionUser();
+    const workshopId = user.workshop_id;
+
+    const { data: jobs, error } = await supabaseAdmin
+      .from("job_cards")
+      .select(
+        "id, job_number, status, dropped_off_at, customer_id, vehicle_id, package_id, custom_package_amount",
+      )
+      .eq("workshop_id", workshopId)
+      .in("status", ["pending", "in_progress", "repair_completed"])
+      .order("dropped_off_at", { ascending: true });
+    if (error) {
+      console.error("[listActiveJobs]", error.message);
+      throw new Error("Failed to load jobs");
+    }
+
+    const rows = jobs ?? [];
+    const customerIds = [...new Set(rows.map((r) => r.customer_id).filter(Boolean))] as string[];
+    const vehicleIds = [...new Set(rows.map((r) => r.vehicle_id).filter(Boolean))] as string[];
+    const packageIds = [...new Set(rows.map((r) => r.package_id).filter(Boolean))] as string[];
+    const jobIds = rows.map((r) => r.id);
+
+    const [customersRes, vehiclesRes, packagesRes, partsRes, workshopRes] = await Promise.all([
+      customerIds.length
+        ? supabaseAdmin.from("customers").select("id, name").in("id", customerIds)
+        : Promise.resolve({ data: [], error: null } as const),
+      vehicleIds.length
+        ? supabaseAdmin.from("vehicles").select("id, make, model").in("id", vehicleIds)
+        : Promise.resolve({ data: [], error: null } as const),
+      packageIds.length
+        ? supabaseAdmin.from("service_packages").select("id, price").in("id", packageIds)
+        : Promise.resolve({ data: [], error: null } as const),
+      jobIds.length
+        ? supabaseAdmin
+            .from("job_card_parts")
+            .select("job_card_id, line_total, unit_price, quantity")
+            .in("job_card_id", jobIds)
+        : Promise.resolve({ data: [], error: null } as const),
+      supabaseAdmin
+        .from("workshops")
+        .select("job_duration_threshold")
+        .eq("id", workshopId)
+        .maybeSingle(),
+    ]);
+
+    const customers = new Map((customersRes.data ?? []).map((c: any) => [c.id, c.name as string]));
+    const vehicles = new Map(
+      (vehiclesRes.data ?? []).map((v: any) => [v.id, { make: v.make as string, model: v.model as string }]),
+    );
+    const packages = new Map(
+      (packagesRes.data ?? []).map((p: any) => [p.id, Number(p.price) || 0]),
+    );
+    const partsByJob = new Map<string, number>();
+    for (const p of (partsRes.data ?? []) as any[]) {
+      const lt = Number(p.line_total ?? Number(p.unit_price) * Number(p.quantity)) || 0;
+      partsByJob.set(p.job_card_id, (partsByJob.get(p.job_card_id) ?? 0) + lt);
+    }
+
+    const out: ActiveJobDTO[] = rows.map((r) => {
+      const pkgAmt = r.package_id
+        ? packages.get(r.package_id) ?? 0
+        : Number(r.custom_package_amount) || 0;
+      const partsAmt = partsByJob.get(r.id) ?? 0;
+      const v = r.vehicle_id ? vehicles.get(r.vehicle_id) : undefined;
+      return {
+        id: r.id,
+        job_number: r.job_number,
+        status: r.status ?? "pending",
+        dropped_off_at: r.dropped_off_at,
+        customer_name: (r.customer_id && customers.get(r.customer_id)) || "—",
+        vehicle_make: v?.make ?? "",
+        vehicle_model: v?.model ?? "",
+        total_amount: pkgAmt + partsAmt,
+      };
+    });
+
+    return {
+      jobs: out,
+      threshold: Number(workshopRes.data?.job_duration_threshold ?? 3),
+    };
+  },
+);
+
