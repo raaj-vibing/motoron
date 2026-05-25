@@ -24,7 +24,10 @@ export const listKioskUsers = createServerFn({ method: "GET" }).handler(
       .eq("workshop_id", WORKSHOP_ID)
       .eq("status", "active")
       .order("name", { ascending: true });
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[listKioskUsers]", error.message);
+      throw new Error("Service temporarily unavailable");
+    }
     return (data ?? []) as { id: string; name: string }[];
   },
 );
