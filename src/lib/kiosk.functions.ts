@@ -450,3 +450,205 @@ export const listActiveJobs = createServerFn({ method: "GET" }).handler(
   },
 );
 
+
+// --- Protected: full job detail ---
+const jobIdSchema = z.object({ jobId: z.string().uuid() });
+
+export type JobDetailPart = {
+  id: string;
+  part_name: string;
+  quantity: number;
+  unit: string;
+  unit_price: number;
+  line_total: number;
+};
+
+export type JobDetailDTO = {
+  id: string;
+  job_number: string;
+  status: string;
+  customer_complaint: string | null;
+  mileage_at_dropoff: number | null;
+  dropped_off_at: string | null;
+  repair_completed_at: string | null;
+  picked_up_at: string | null;
+  pickup_requested_date: string | null;
+  dropoff_notification_sent: boolean;
+  completed_notification_sent: boolean;
+  customer: {
+    id: string;
+    name: string;
+    phone: string;
+    address: string | null;
+  } | null;
+  vehicle: {
+    id: string;
+    make: string;
+    model: string;
+    year: number | null;
+    colour: string | null;
+    licence_plate: string | null;
+    type: string;
+  } | null;
+  package: { id: string; name: string; price: number } | null;
+  custom_package_amount: number | null;
+  parts: JobDetailPart[];
+  total_amount: number;
+  prior_visits: PriorVisitDTO[];
+  workshop: {
+    id: string;
+    name: string;
+    phone: string | null;
+    maps_link: string | null;
+    hours: any;
+  };
+};
+
+export const getJobDetail = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => jobIdSchema.parse(input))
+  .handler(async ({ data }): Promise<JobDetailDTO> => {
+    const user = await requireSessionUser();
+    const workshopId = user.workshop_id;
+
+    const { data: job, error } = await supabaseAdmin
+      .from("job_cards")
+      .select(
+        "id, job_number, status, customer_complaint, mileage_at_dropoff, dropped_off_at, repair_completed_at, picked_up_at, pickup_requested_date, dropoff_notification_sent, completed_notification_sent, customer_id, vehicle_id, package_id, custom_package_amount",
+      )
+      .eq("id", data.jobId)
+      .eq("workshop_id", workshopId)
+      .maybeSingle();
+    if (error || !job) throw new Error("Job not found");
+
+    const [custRes, vehRes, pkgRes, partsRes, priorRes, wsRes] = await Promise.all([
+      job.customer_id
+        ? supabaseAdmin
+            .from("customers")
+            .select("id, name, phone, address")
+            .eq("id", job.customer_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null } as const),
+      job.vehicle_id
+        ? supabaseAdmin
+            .from("vehicles")
+            .select("id, make, model, year, colour, licence_plate, type")
+            .eq("id", job.vehicle_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null } as const),
+      job.package_id
+        ? supabaseAdmin
+            .from("service_packages")
+            .select("id, name, price")
+            .eq("id", job.package_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null } as const),
+      supabaseAdmin
+        .from("job_card_parts")
+        .select("id, part_name, quantity, unit, unit_price, line_total")
+        .eq("job_card_id", job.id),
+      job.customer_id
+        ? supabaseAdmin
+            .from("job_cards")
+            .select("id, job_number, dropped_off_at, mileage_at_dropoff, customer_complaint")
+            .eq("workshop_id", workshopId)
+            .eq("customer_id", job.customer_id)
+            .eq("status", "closed")
+            .neq("id", job.id)
+            .order("dropped_off_at", { ascending: false })
+            .limit(5)
+        : Promise.resolve({ data: [], error: null } as const),
+      supabaseAdmin
+        .from("workshops")
+        .select("id, name, phone, maps_link, hours")
+        .eq("id", workshopId)
+        .maybeSingle(),
+    ]);
+
+    const parts: JobDetailPart[] = ((partsRes.data ?? []) as any[]).map((p) => ({
+      id: p.id,
+      part_name: p.part_name,
+      quantity: Number(p.quantity) || 0,
+      unit: p.unit ?? "pcs",
+      unit_price: Number(p.unit_price) || 0,
+      line_total: Number(p.line_total ?? Number(p.unit_price) * Number(p.quantity)) || 0,
+    }));
+
+    const pkgAmt = pkgRes.data
+      ? Number((pkgRes.data as any).price) || 0
+      : Number(job.custom_package_amount) || 0;
+    const partsAmt = parts.reduce((s, p) => s + p.line_total, 0);
+
+    return {
+      id: job.id,
+      job_number: job.job_number,
+      status: job.status ?? "pending",
+      customer_complaint: job.customer_complaint,
+      mileage_at_dropoff: job.mileage_at_dropoff,
+      dropped_off_at: job.dropped_off_at,
+      repair_completed_at: job.repair_completed_at,
+      picked_up_at: job.picked_up_at,
+      pickup_requested_date: job.pickup_requested_date,
+      dropoff_notification_sent: !!job.dropoff_notification_sent,
+      completed_notification_sent: !!job.completed_notification_sent,
+      customer: (custRes.data as any) ?? null,
+      vehicle: (vehRes.data as any) ?? null,
+      package: pkgRes.data ? { id: (pkgRes.data as any).id, name: (pkgRes.data as any).name, price: Number((pkgRes.data as any).price) || 0 } : null,
+      custom_package_amount: job.custom_package_amount != null ? Number(job.custom_package_amount) : null,
+      parts,
+      total_amount: pkgAmt + partsAmt,
+      prior_visits: (priorRes.data ?? []) as PriorVisitDTO[],
+      workshop: (wsRes.data as any) ?? { id: workshopId, name: "Workshop", phone: null, maps_link: null, hours: null },
+    };
+  });
+
+// --- Protected: update job status ---
+const updateStatusSchema = z.object({
+  jobId: z.string().uuid(),
+  status: z.enum(["pending", "in_progress", "repair_completed", "closed"]),
+});
+
+export const updateJobStatus = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => updateStatusSchema.parse(input))
+  .handler(async ({ data }) => {
+    const user = await requireSessionUser();
+    const patch: {
+      status: "pending" | "in_progress" | "repair_completed" | "closed";
+      repair_completed_at?: string;
+      picked_up_at?: string;
+    } = { status: data.status };
+    if (data.status === "repair_completed") patch.repair_completed_at = new Date().toISOString();
+    if (data.status === "closed") patch.picked_up_at = new Date().toISOString();
+    const { error } = await supabaseAdmin
+      .from("job_cards")
+      .update(patch)
+      .eq("id", data.jobId)
+      .eq("workshop_id", user.workshop_id);
+    if (error) {
+      console.error("[updateJobStatus]", error.message);
+      throw new Error("Failed to update status");
+    }
+    return { ok: true as const };
+  });
+
+// --- Protected: mark notification sent ---
+const markNotifSchema = z.object({
+  jobId: z.string().uuid(),
+  kind: z.enum(["dropoff", "completed"]),
+});
+
+export const markNotificationSent = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => markNotifSchema.parse(input))
+  .handler(async ({ data }) => {
+    const user = await requireSessionUser();
+    const patch =
+      data.kind === "dropoff"
+        ? { dropoff_notification_sent: true }
+        : { completed_notification_sent: true };
+    const { error } = await supabaseAdmin
+      .from("job_cards")
+      .update(patch)
+      .eq("id", data.jobId)
+      .eq("workshop_id", user.workshop_id);
+    if (error) throw new Error(error.message);
+    return { ok: true as const };
+  });

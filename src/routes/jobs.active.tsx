@@ -182,7 +182,7 @@ function ActiveJobsPage() {
                 <li key={j.id}>
                   <button
                     type="button"
-                    onClick={() => navigate({ to: "/home" })}
+                    onClick={() => navigate({ to: "/jobs/$jobId", params: { jobId: j.id } })}
                     className="w-full text-left rounded-[12px] p-4 bg-[#1B2E42] border border-[#2D4A66] active:scale-[0.99] transition-transform"
                   >
                     <div className="flex items-center justify-between">
