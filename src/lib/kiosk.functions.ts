@@ -652,3 +652,120 @@ export const markNotificationSent = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });
+
+// --- Protected: update an existing job card (edit flow) ---
+const updateJobSchema = z.object({
+  jobId: z.string().uuid(),
+  customerId: z.string().uuid(),
+  customerName: z.string().trim().min(1).max(120),
+  address: z.string().trim().max(500).nullable().optional(),
+  vehicleId: z.string().uuid().nullable(),
+  vehicleForm: z.object({
+    type: z.string().min(1).max(40),
+    make: z.string().trim().min(1).max(80),
+    model: z.string().trim().min(1).max(80),
+    year: z.number().int().min(1900).max(2100).nullable(),
+    colour: z.string().trim().max(40).nullable(),
+    licence_plate: z.string().trim().min(1).max(20),
+    current_mileage: z.number().int().min(0).max(10_000_000),
+  }),
+  complaint: z.string().trim().min(1).max(2000),
+  pickupRequestedDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .optional(),
+});
+
+export const updateJobCard = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => updateJobSchema.parse(input))
+  .handler(async ({ data }) => {
+    const user = await requireSessionUser();
+    const workshopId = user.workshop_id;
+
+    const { data: job, error: jErr } = await supabaseAdmin
+      .from("job_cards")
+      .select("id, customer_id, vehicle_id")
+      .eq("id", data.jobId)
+      .eq("workshop_id", workshopId)
+      .maybeSingle();
+    if (jErr || !job) throw new Error("Job not found");
+
+    {
+      const { error } = await supabaseAdmin
+        .from("customers")
+        .update({
+          name: data.customerName,
+          address: data.address ?? null,
+        })
+        .eq("id", data.customerId)
+        .eq("workshop_id", workshopId);
+      if (error) {
+        console.error("[updateJobCard:customer]", error.message);
+        throw new Error("Failed to update customer");
+      }
+    }
+
+    let vehicleId = data.vehicleId;
+    const vf = data.vehicleForm;
+    if (vehicleId) {
+      const { error } = await supabaseAdmin
+        .from("vehicles")
+        .update({
+          type: vf.type,
+          make: vf.make,
+          model: vf.model,
+          year: vf.year,
+          colour: vf.colour,
+          licence_plate: vf.licence_plate.toUpperCase(),
+          last_mileage: vf.current_mileage,
+        })
+        .eq("id", vehicleId)
+        .eq("workshop_id", workshopId);
+      if (error) {
+        console.error("[updateJobCard:vehicle]", error.message);
+        throw new Error("Failed to update vehicle");
+      }
+    } else {
+      const { data: insertedV, error } = await supabaseAdmin
+        .from("vehicles")
+        .insert({
+          customer_id: data.customerId,
+          workshop_id: workshopId,
+          type: vf.type,
+          make: vf.make,
+          model: vf.model,
+          year: vf.year,
+          colour: vf.colour,
+          licence_plate: vf.licence_plate.toUpperCase(),
+          last_mileage: vf.current_mileage,
+        })
+        .select("id")
+        .single();
+      if (error || !insertedV) {
+        console.error("[updateJobCard:vehicle-insert]", error?.message);
+        throw new Error("Failed to create vehicle");
+      }
+      vehicleId = insertedV.id;
+    }
+
+    {
+      const { error } = await supabaseAdmin
+        .from("job_cards")
+        .update({
+          vehicle_id: vehicleId,
+          mileage_at_dropoff: vf.current_mileage,
+          customer_complaint: data.complaint,
+          pickup_requested_date: data.pickupRequestedDate ?? null,
+        })
+        .eq("id", data.jobId)
+        .eq("workshop_id", workshopId);
+      if (error) {
+        console.error("[updateJobCard:job]", error.message);
+        throw new Error("Failed to update job");
+      }
+    }
+
+    return { ok: true as const, jobId: data.jobId };
+  });
+

@@ -88,7 +88,10 @@ function VehicleDetailsStep() {
       setYear(d.vehicle.year ?? null);
       setColour(d.vehicle.colour ?? "");
       setLicencePlate((d.vehicle.licence_plate ?? "").toUpperCase());
-      // Mileage intentionally left blank — must be re-entered for this visit.
+      // In edit mode, prefill mileage from the existing job card.
+      if (d.editJobId && d.initialMileage != null) {
+        setMileage(String(d.initialMileage));
+      }
     } else if (d.vehicleForm) {
       const f = d.vehicleForm;
       setType(f.type as VehicleType);
@@ -168,17 +171,21 @@ function VehicleDetailsStep() {
       <header className="relative w-full px-5 pt-6 pb-3 flex items-center justify-center">
         <button
           type="button"
-          onClick={() => navigate({ to: "/jobs/new" })}
+          onClick={() =>
+            draft?.editJobId
+              ? navigate({ to: "/jobs/$jobId", params: { jobId: draft.editJobId } })
+              : navigate({ to: "/jobs/new" })
+          }
           className="absolute left-3 top-1/2 -translate-y-1/2 p-2 text-foreground hover:text-primary transition"
           aria-label="Back"
         >
           <ArrowLeft className="w-6 h-6" />
         </button>
         <h1 className="font-display text-[24px] tracking-wide text-foreground">
-          Vehicle Details
+          {draft?.editJobId ? "Edit Vehicle" : "Vehicle Details"}
         </h1>
         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
-          Step 2 of 3
+          {draft?.editJobId ? "Edit · 1 of 2" : "Step 2 of 3"}
         </span>
       </header>
 
