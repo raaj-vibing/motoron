@@ -1,8 +1,13 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { getKioskUser, type KioskUser } from "@/lib/kiosk-session";
+import {
+  getCurrentKioskUser,
+  lookupCustomerByPhone,
+  type CustomerDTO,
+  type VehicleDTO,
+} from "@/lib/kiosk.functions";
 import {
   setJobDraft,
   type DraftCustomer,
@@ -11,56 +16,31 @@ import {
 
 export const Route = createFileRoute("/jobs/new/")({
   head: () => ({ meta: [{ title: "New Job — MotorON.ai" }] }),
+  beforeLoad: async () => {
+    const user = await getCurrentKioskUser();
+    if (!user) throw redirect({ to: "/" });
+    return { kioskUser: user };
+  },
   component: NewJobPhoneEntry,
 });
-
-type Customer = {
-  id: string;
-  name: string;
-  phone: string;
-  address: string | null;
-  workshop_id: string;
-};
-
-type Vehicle = {
-  id: string;
-  customer_id: string;
-  make: string;
-  model: string;
-  year: number | null;
-  licence_plate: string | null;
-  type: string;
-  colour: string | null;
-  last_mileage: number | null;
-};
 
 type LookupState =
   | { kind: "idle" }
   | { kind: "loading" }
   | { kind: "error"; message: string }
   | { kind: "new" }
-  | { kind: "existing-single"; customer: Customer; vehicle: Vehicle }
-  | { kind: "existing-multi"; customer: Customer; vehicles: Vehicle[] }
-  | { kind: "existing-none"; customer: Customer };
+  | { kind: "existing-single"; customer: CustomerDTO; vehicle: VehicleDTO }
+  | { kind: "existing-multi"; customer: CustomerDTO; vehicles: VehicleDTO[] }
+  | { kind: "existing-none"; customer: CustomerDTO };
 
 function NewJobPhoneEntry() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<KioskUser | null>(null);
+  const doLookup = useServerFn(lookupCustomerByPhone);
+
   const [phone, setPhone] = useState("");
   const [lookup, setLookup] = useState<LookupState>({ kind: "idle" });
-
-  // Result-form state (drives the Next button)
   const [newName, setNewName] = useState("");
   const [address, setAddress] = useState("");
-
-  useEffect(() => {
-    const u = getKioskUser();
-    if (!u) {
-      navigate({ to: "/" });
-      return;
-    }
-    setUser(u);
-  }, [navigate]);
 
   const phoneValid = phone.length === 10;
 
@@ -75,56 +55,33 @@ function NewJobPhoneEntry() {
   };
 
   const startLookup = async () => {
-    if (!user || !phoneValid) return;
+    if (!phoneValid) return;
     setLookup({ kind: "loading" });
-
-    const { data: customers, error: cErr } = await supabase
-      .from("customers")
-      .select("id, name, phone, address, workshop_id")
-      .eq("workshop_id", user.workshop_id)
-      .eq("phone", phone)
-      .limit(1);
-
-    if (cErr) {
-      setLookup({ kind: "error", message: cErr.message });
-      return;
-    }
-
-    const customer = (customers?.[0] as Customer | undefined) ?? null;
-    if (!customer) {
-      setLookup({ kind: "new" });
-      return;
-    }
-
-    setAddress(customer.address ?? "");
-
-    const { data: vehicles, error: vErr } = await supabase
-      .from("vehicles")
-      .select(
-        "id, customer_id, make, model, year, licence_plate, type, colour, last_mileage",
-      )
-      .eq("customer_id", customer.id)
-      .eq("workshop_id", user.workshop_id)
-      .order("created_at", { ascending: false });
-
-    if (vErr) {
-      setLookup({ kind: "error", message: vErr.message });
-      return;
-    }
-
-    const list = (vehicles ?? []) as Vehicle[];
-    if (list.length === 0) {
-      setLookup({ kind: "existing-none", customer });
-    } else if (list.length === 1) {
-      setLookup({ kind: "existing-single", customer, vehicle: list[0] });
-    } else {
-      setLookup({ kind: "existing-multi", customer, vehicles: list });
+    try {
+      const { customer, vehicles } = await doLookup({ data: { phone } });
+      if (!customer) {
+        setLookup({ kind: "new" });
+        return;
+      }
+      setAddress(customer.address ?? "");
+      if (vehicles.length === 0) {
+        setLookup({ kind: "existing-none", customer });
+      } else if (vehicles.length === 1) {
+        setLookup({ kind: "existing-single", customer, vehicle: vehicles[0] });
+      } else {
+        setLookup({ kind: "existing-multi", customer, vehicles });
+      }
+    } catch (e) {
+      setLookup({
+        kind: "error",
+        message: e instanceof Error ? e.message : "Lookup failed",
+      });
     }
   };
 
   const goToVehicleStep = (
-    customer: Customer | null,
-    vehicle: Vehicle | null,
+    customer: CustomerDTO | null,
+    vehicle: VehicleDTO | null,
     overrideName?: string,
     overrideAddress?: string | null,
   ) => {
@@ -162,7 +119,6 @@ function NewJobPhoneEntry() {
 
   return (
     <main className="min-h-screen w-full bg-background flex flex-col">
-      {/* Header */}
       <header className="relative w-full px-5 pt-6 pb-3 flex items-center justify-center">
         <button
           type="button"
@@ -210,12 +166,8 @@ function NewJobPhoneEntry() {
           <p className="mt-4 text-destructive text-sm">{lookup.message}</p>
         )}
 
-        {/* Result A: existing single vehicle */}
         {lookup.kind === "existing-single" && (
-          <ExistingCustomerCard
-            customer={lookup.customer}
-            className="mt-6"
-          >
+          <ExistingCustomerCard customer={lookup.customer} className="mt-6">
             <AddressField value={address} onChange={setAddress} />
             <NextButton
               onClick={() =>
@@ -225,7 +177,6 @@ function NewJobPhoneEntry() {
           </ExistingCustomerCard>
         )}
 
-        {/* Result B: existing multiple vehicles */}
         {lookup.kind === "existing-multi" && (
           <>
             <ExistingCustomerCard customer={lookup.customer} className="mt-6">
@@ -272,7 +223,6 @@ function NewJobPhoneEntry() {
           </>
         )}
 
-        {/* Existing customer found but no vehicles yet */}
         {lookup.kind === "existing-none" && (
           <ExistingCustomerCard customer={lookup.customer} className="mt-6">
             <AddressField value={address} onChange={setAddress} />
@@ -284,7 +234,6 @@ function NewJobPhoneEntry() {
           </ExistingCustomerCard>
         )}
 
-        {/* Result C: new customer */}
         {lookup.kind === "new" && (
           <NewCustomerForm
             name={newName}
@@ -306,7 +255,7 @@ function ExistingCustomerCard({
   className,
   children,
 }: {
-  customer: Customer;
+  customer: CustomerDTO;
   className?: string;
   children?: React.ReactNode;
 }) {

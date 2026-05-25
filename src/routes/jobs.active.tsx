@@ -1,8 +1,14 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { Logo } from "@/components/Logo";
+import { getCurrentKioskUser } from "@/lib/kiosk.functions";
 
 export const Route = createFileRoute("/jobs/active")({
   head: () => ({ meta: [{ title: "Active Jobs — MotorON.ai" }] }),
+  beforeLoad: async () => {
+    const user = await getCurrentKioskUser();
+    if (!user) throw redirect({ to: "/" });
+    return { kioskUser: user };
+  },
   component: ActiveJobsPlaceholder,
 });
 
