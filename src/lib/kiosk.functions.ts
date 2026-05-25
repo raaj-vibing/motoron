@@ -151,3 +151,204 @@ export const updateVehicleMileage = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });
+
+// --- Protected: list prior job_cards for a customer (and optionally vehicle) ---
+const priorVisitsSchema = z.object({
+  customerId: z.string().uuid(),
+  vehicleId: z.string().uuid().optional(),
+});
+
+export type PriorVisitDTO = {
+  id: string;
+  job_number: string;
+  dropped_off_at: string | null;
+  mileage_at_dropoff: number | null;
+  customer_complaint: string | null;
+};
+
+export const listPriorVisits = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => priorVisitsSchema.parse(input))
+  .handler(async ({ data }): Promise<PriorVisitDTO[]> => {
+    const user = await requireSessionUser();
+    let q = supabaseAdmin
+      .from("job_cards")
+      .select("id, job_number, dropped_off_at, mileage_at_dropoff, customer_complaint")
+      .eq("workshop_id", user.workshop_id)
+      .eq("customer_id", data.customerId)
+      .order("dropped_off_at", { ascending: false })
+      .limit(20);
+    if (data.vehicleId) q = q.eq("vehicle_id", data.vehicleId);
+    const { data: rows, error } = await q;
+    if (error) {
+      console.error("[listPriorVisits]", error.message);
+      throw new Error("Failed to load prior visits");
+    }
+    return (rows ?? []) as PriorVisitDTO[];
+  });
+
+// --- Protected: create the full job card (customer + vehicle + job_card) ---
+const createJobSchema = z.object({
+  phone: z.string().regex(/^\d{10}$/),
+  existingCustomerId: z.string().uuid().nullable(),
+  newCustomerName: z.string().trim().min(1).max(120).optional(),
+  address: z.string().trim().max(500).nullable().optional(),
+  existingVehicleId: z.string().uuid().nullable(),
+  vehicleForm: z.object({
+    type: z.string().min(1).max(40),
+    make: z.string().trim().min(1).max(80),
+    model: z.string().trim().min(1).max(80),
+    year: z.number().int().min(1900).max(2100).nullable(),
+    colour: z.string().trim().max(40).nullable(),
+    licence_plate: z.string().trim().min(1).max(20),
+    current_mileage: z.number().int().min(0).max(10_000_000),
+  }),
+  complaint: z.string().trim().min(1).max(2000),
+  pickupRequestedDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .optional(),
+});
+
+export type CreateJobResult = {
+  jobId: string;
+  jobNumber: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  vehicleId: string;
+  vehicleMake: string;
+  vehicleModel: string;
+};
+
+export const createJobCard = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => createJobSchema.parse(input))
+  .handler(async ({ data }): Promise<CreateJobResult> => {
+    const user = await requireSessionUser();
+    const workshopId = user.workshop_id;
+
+    // 1. Resolve / insert customer
+    let customerId = data.existingCustomerId;
+    let customerName = data.newCustomerName ?? "";
+    if (!customerId) {
+      if (!data.newCustomerName) throw new Error("Customer name is required");
+      const { data: inserted, error } = await supabaseAdmin
+        .from("customers")
+        .insert({
+          name: data.newCustomerName,
+          phone: data.phone,
+          address: data.address ?? null,
+          workshop_id: workshopId,
+        })
+        .select("id, name")
+        .single();
+      if (error || !inserted) {
+        console.error("[createJobCard:customer]", error?.message);
+        throw new Error("Failed to create customer");
+      }
+      customerId = inserted.id;
+      customerName = inserted.name;
+    } else {
+      const { data: c, error } = await supabaseAdmin
+        .from("customers")
+        .select("id, name")
+        .eq("id", customerId)
+        .eq("workshop_id", workshopId)
+        .maybeSingle();
+      if (error || !c) throw new Error("Customer not found");
+      customerName = c.name;
+      // Update address if provided and different
+      if (data.address !== undefined) {
+        await supabaseAdmin
+          .from("customers")
+          .update({ address: data.address ?? null })
+          .eq("id", customerId)
+          .eq("workshop_id", workshopId);
+      }
+    }
+
+    // 2. Resolve / insert vehicle
+    let vehicleId = data.existingVehicleId;
+    const vf = data.vehicleForm;
+    if (!vehicleId) {
+      const { data: insertedV, error } = await supabaseAdmin
+        .from("vehicles")
+        .insert({
+          customer_id: customerId,
+          workshop_id: workshopId,
+          type: vf.type,
+          make: vf.make,
+          model: vf.model,
+          year: vf.year,
+          colour: vf.colour,
+          licence_plate: vf.licence_plate.toUpperCase(),
+          last_mileage: vf.current_mileage,
+        })
+        .select("id")
+        .single();
+      if (error || !insertedV) {
+        console.error("[createJobCard:vehicle]", error?.message);
+        throw new Error("Failed to create vehicle");
+      }
+      vehicleId = insertedV.id;
+    } else {
+      await supabaseAdmin
+        .from("vehicles")
+        .update({ last_mileage: vf.current_mileage })
+        .eq("id", vehicleId)
+        .eq("workshop_id", workshopId);
+    }
+
+    // 3. Generate next job number
+    const { data: lastJob, error: lastErr } = await supabaseAdmin
+      .from("job_cards")
+      .select("job_number")
+      .eq("workshop_id", workshopId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (lastErr) {
+      console.error("[createJobCard:jobNumber]", lastErr.message);
+      throw new Error("Failed to generate job number");
+    }
+    let maxNum = 0;
+    for (const r of lastJob ?? []) {
+      const m = /^JC-(\d+)$/.exec(r.job_number ?? "");
+      if (m) {
+        const n = parseInt(m[1], 10);
+        if (n > maxNum) maxNum = n;
+      }
+    }
+    const jobNumber = `JC-${String(maxNum + 1).padStart(4, "0")}`;
+
+    // 4. Insert job card
+    const { data: job, error: jobErr } = await supabaseAdmin
+      .from("job_cards")
+      .insert({
+        job_number: jobNumber,
+        workshop_id: workshopId,
+        customer_id: customerId,
+        vehicle_id: vehicleId,
+        created_by: user.id,
+        mileage_at_dropoff: vf.current_mileage,
+        customer_complaint: data.complaint,
+        pickup_requested_date: data.pickupRequestedDate ?? null,
+        status: "pending",
+      })
+      .select("id, job_number")
+      .single();
+    if (jobErr || !job) {
+      console.error("[createJobCard:job]", jobErr?.message);
+      throw new Error("Failed to create job card");
+    }
+
+    return {
+      jobId: job.id,
+      jobNumber: job.job_number,
+      customerId: customerId!,
+      customerName,
+      customerPhone: data.phone,
+      vehicleId: vehicleId!,
+      vehicleMake: vf.make,
+      vehicleModel: vf.model,
+    };
+  });
