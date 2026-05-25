@@ -6,6 +6,7 @@ import {
   getCurrentKioskUser,
   listPriorVisits,
   createJobCard,
+  updateJobCard,
   type PriorVisitDTO,
   type CreateJobResult,
 } from "@/lib/kiosk.functions";
@@ -43,6 +44,7 @@ function ComplaintStep() {
   const navigate = useNavigate();
   const loadPrior = useServerFn(listPriorVisits);
   const submit = useServerFn(createJobCard);
+  const submitUpdate = useServerFn(updateJobCard);
 
   const [draft, setDraft] = useState<JobDraft | null>(null);
   const [complaint, setComplaint] = useState("");
@@ -61,6 +63,10 @@ function ComplaintStep() {
       return;
     }
     setDraft(d);
+    if (d.editJobId) {
+      if (d.initialComplaint) setComplaint(d.initialComplaint);
+      if (d.initialPickupDate) setPickupDate(d.initialPickupDate);
+    }
     if (d.customer) {
       loadPrior({
         data: {
@@ -68,12 +74,16 @@ function ComplaintStep() {
           vehicleId: d.vehicle?.id,
         },
       })
-        .then(setPriorVisits)
+        .then((rows) =>
+          setPriorVisits(d.editJobId ? rows.filter((r) => r.id !== d.editJobId) : rows),
+        )
         .catch(() => setPriorVisits([]));
     }
   }, [navigate, loadPrior]);
 
-  const handleCreate = async () => {
+  const isEdit = !!draft?.editJobId;
+
+  const handleSubmit = async () => {
     if (!draft || !draft.vehicleForm) return;
     const trimmed = complaint.trim();
     if (!trimmed) {
@@ -83,6 +93,25 @@ function ComplaintStep() {
     setError(null);
     setSubmitting(true);
     try {
+      if (isEdit && draft.editJobId && draft.customer) {
+        await submitUpdate({
+          data: {
+            jobId: draft.editJobId,
+            customerId: draft.customer.id,
+            customerName: draft.customer.name,
+            address: draft.address ?? draft.customer.address ?? null,
+            vehicleId: draft.vehicle?.id ?? null,
+            vehicleForm: draft.vehicleForm,
+            complaint: trimmed,
+            pickupRequestedDate: pickupDate || null,
+          },
+        });
+        const jobId = draft.editJobId;
+        clearJobDraft();
+        navigate({ to: "/jobs/$jobId", params: { jobId } });
+        return;
+      }
+
       const result = await submit({
         data: {
           phone: draft.phone,
@@ -96,7 +125,6 @@ function ComplaintStep() {
         },
       });
 
-      // Open WhatsApp drop-off message in a new tab
       const msg =
         `Hi ${result.customerName}, your ${result.vehicleMake} ${result.vehicleModel} ` +
         `has been dropped off at My Workshop. ` +
@@ -107,7 +135,7 @@ function ComplaintStep() {
 
       setSuccess(result);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create job");
+      setError(e instanceof Error ? e.message : isEdit ? "Failed to update job" : "Failed to create job");
     } finally {
       setSubmitting(false);
     }
