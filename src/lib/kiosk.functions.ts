@@ -640,10 +640,13 @@ export const markNotificationSent = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => markNotifSchema.parse(input))
   .handler(async ({ data }) => {
     const user = await requireSessionUser();
-    const field = data.kind === "dropoff" ? "dropoff_notification_sent" : "completed_notification_sent";
+    const patch =
+      data.kind === "dropoff"
+        ? { dropoff_notification_sent: true }
+        : { completed_notification_sent: true };
     const { error } = await supabaseAdmin
       .from("job_cards")
-      .update({ [field]: true })
+      .update(patch)
       .eq("id", data.jobId)
       .eq("workshop_id", user.workshop_id);
     if (error) throw new Error(error.message);
