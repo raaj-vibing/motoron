@@ -611,7 +611,11 @@ export const updateJobStatus = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => updateStatusSchema.parse(input))
   .handler(async ({ data }) => {
     const user = await requireSessionUser();
-    const patch: Record<string, unknown> = { status: data.status };
+    const patch: {
+      status: StatusKey;
+      repair_completed_at?: string;
+      picked_up_at?: string;
+    } = { status: data.status };
     if (data.status === "repair_completed") patch.repair_completed_at = new Date().toISOString();
     if (data.status === "closed") patch.picked_up_at = new Date().toISOString();
     const { error } = await supabaseAdmin
