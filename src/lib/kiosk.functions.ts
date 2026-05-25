@@ -795,7 +795,7 @@ export const updateMyAccount = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => updateAccountSchema.parse(i))
   .handler(async ({ data }) => {
     const user = await requireSessionUser();
-    const patch: Record<string, unknown> = {
+    const patch: { name: string; email: string | null; phone: string | null; pin?: string } = {
       name: data.name,
       email: data.email || null,
       phone: data.phone || null,
