@@ -11,6 +11,7 @@ import {
   type JobDetailDTO,
   type PriorVisitDTO,
 } from "@/lib/kiosk.functions";
+import { setJobDraft } from "@/lib/job-draft";
 
 export const Route = createFileRoute("/jobs/$jobId")({
   head: () => ({ meta: [{ title: "Job Detail — MotorON.ai" }] }),
@@ -335,7 +336,37 @@ function JobDetailPage() {
       <div className="fixed inset-x-0 bottom-0 px-5 pt-3 pb-[max(env(safe-area-inset-bottom),1rem)] bg-background/95 backdrop-blur border-t border-border space-y-2">
         <button
           type="button"
-          onClick={() => toast("Edit Job Card — coming soon")}
+          onClick={() => {
+            if (!job.customer || !job.vehicle) {
+              toast.error("Cannot edit: job missing customer or vehicle");
+              return;
+            }
+            setJobDraft({
+              phone: job.customer.phone,
+              customer: {
+                id: job.customer.id,
+                name: job.customer.name,
+                phone: job.customer.phone,
+                address: job.customer.address,
+              },
+              address: job.customer.address,
+              vehicle: {
+                id: job.vehicle.id,
+                make: job.vehicle.make,
+                model: job.vehicle.model,
+                year: job.vehicle.year,
+                licence_plate: job.vehicle.licence_plate,
+                type: job.vehicle.type,
+                colour: job.vehicle.colour,
+                last_mileage: null,
+              },
+              editJobId: job.id,
+              initialComplaint: job.customer_complaint ?? "",
+              initialPickupDate: job.pickup_requested_date,
+              initialMileage: job.mileage_at_dropoff,
+            });
+            navigate({ to: "/jobs/new/vehicle" });
+          }}
           className="w-full h-12 rounded-lg border-2 border-primary text-primary font-semibold text-sm active:scale-[0.98] transition"
         >
           Edit Job Card
