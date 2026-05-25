@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Delete } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import {
@@ -39,6 +39,7 @@ function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
   const [checking, setChecking] = useState(false);
+  const submittedPinRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,6 +64,8 @@ function LoginPage() {
 
   const submit = async (full: string) => {
     if (!selected || checking) return;
+    if (submittedPinRef.current === full) return;
+    submittedPinRef.current = full;
     setChecking(true);
     try {
       const result = await submitPin({ data: { userId: selected.id, pin: full } });
@@ -75,6 +78,7 @@ function LoginPage() {
       triggerError();
     } finally {
       setChecking(false);
+      submittedPinRef.current = null;
     }
   };
 
@@ -99,6 +103,7 @@ function LoginPage() {
     setSelected(null);
     setPin("");
     setError(null);
+    submittedPinRef.current = null;
   };
 
   return (
