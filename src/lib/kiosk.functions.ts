@@ -497,6 +497,7 @@ export type JobDetailDTO = {
   id: string;
   job_number: string;
   status: string;
+  payment_status: string | null;
   customer_complaint: string | null;
   mileage_at_dropoff: number | null;
   dropped_off_at: string | null;
