@@ -336,6 +336,13 @@ function JobDetailPage() {
       <div className="fixed inset-x-0 bottom-0 px-5 pt-3 pb-[max(env(safe-area-inset-bottom),1rem)] bg-background/95 backdrop-blur border-t border-border space-y-2">
         <button
           type="button"
+          onClick={() => navigate({ to: "/jobs/$jobId_/invoice", params: { jobId: job.id } })}
+          className="w-full h-12 rounded-lg bg-primary text-white font-semibold text-sm active:scale-[0.98] transition"
+        >
+          View Invoice
+        </button>
+        <button
+          type="button"
           onClick={() => {
             if (!job.customer || !job.vehicle) {
               toast.error("Cannot edit: job missing customer or vehicle");
