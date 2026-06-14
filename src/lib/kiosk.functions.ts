@@ -209,18 +209,14 @@ const createJobSchema = z.object({
     .nullable()
     .optional(),
   packageId: z.string().uuid().nullable().optional(),
-  customPackageAmount: z.number().min(0).max(10_000_000).nullable().optional(),
-  parts: z
-    .array(
-      z.object({
-        partName: z.string().trim().min(1).max(120),
-        quantity: z.number().min(0).max(100_000),
-        unit: z.string().trim().min(1).max(20),
-        unitPrice: z.number().min(0).max(10_000_000),
-      }),
-    )
-    .max(50)
-    .optional(),
+  customPackageAmount: z.number().nullable().optional(),
+  parts: z.array(z.object({
+    partName: z.string(),
+    quantity: z.number(),
+    unit: z.enum(["pcs", "litre", "ml", "set", "pair", "metre"]),
+    unitPrice: z.number(),
+    lineTotal: z.number(),
+  })).optional().default([]),
 });
 
 export type CreateJobResult = {
