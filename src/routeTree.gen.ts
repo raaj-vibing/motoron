@@ -50,11 +50,6 @@ const JobsJobIdRoute = JobsJobIdRouteImport.update({
   path: '/jobs/$jobId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const JobsJobIdInvoiceRoute = JobsJobIdInvoiceRouteImport.update({
-  id: '/jobs/$jobId_/invoice',
-  path: '/jobs/$jobId/invoice',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const JobsNewIndexRoute = JobsNewIndexRouteImport.update({
   id: '/',
   path: '/',
