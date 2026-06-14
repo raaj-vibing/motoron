@@ -364,6 +364,14 @@ function JobDetailPage() {
               initialComplaint: job.customer_complaint ?? "",
               initialPickupDate: job.pickup_requested_date,
               initialMileage: job.mileage_at_dropoff,
+              initialPackageId: job.package?.id ?? null,
+              initialCustomPackageAmount: job.custom_package_amount,
+              initialParts: job.parts.map((p) => ({
+                partName: p.part_name,
+                quantity: p.quantity,
+                unit: p.unit,
+                unitPrice: p.unit_price,
+              })),
             });
             navigate({ to: "/jobs/new/vehicle" });
           }}
