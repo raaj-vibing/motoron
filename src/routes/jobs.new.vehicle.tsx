@@ -59,7 +59,7 @@ function VehicleDetailsStep() {
   const saveMileage = useServerFn(updateVehicleMileage);
   const [draft, setDraft] = useState<JobDraft | null>(null);
 
-  const [type, setType] = useState<VehicleType | "">("");
+  const [type, setType] = useState<VehicleType | "">("Bike");
   const [make, setMake] = useState("");
   const [model, setModel] = useState("");
   const [year, setYear] = useState<number | null>(null);
@@ -82,7 +82,8 @@ function VehicleDetailsStep() {
     setDraft(d);
     if (d.vehicle) {
       const t = (d.vehicle.type || "") as VehicleType;
-      setType(TYPES.some((x) => x.value === t) ? t : "");
+      const matched = TYPES.find((x) => x.value.toLowerCase() === t.toLowerCase());
+      setType(matched ? matched.value : "Bike");  // fallback to Bike
       setMake(d.vehicle.make ?? "");
       setModel(d.vehicle.model ?? "");
       setYear(d.vehicle.year ?? null);
@@ -196,11 +197,14 @@ function VehicleDetailsStep() {
           <div className="grid grid-cols-4 gap-2">
             {TYPES.map((t) => {
               const selected = type === t.value;
+              const disabled = t.value !== "Bike";
               return (
                 <button
                   key={t.value}
                   type="button"
+                  disabled={disabled}
                   onClick={() => {
+                    if (disabled) return;
                     setType(t.value);
                     setErrors((p) => ({ ...p, type: undefined }));
                     if (t.value === "Other") return;
@@ -213,6 +217,8 @@ function VehicleDetailsStep() {
                     "flex items-center justify-center gap-1",
                     selected
                       ? "bg-primary text-white"
+                      : disabled
+                      ? "bg-card text-muted-foreground/30 border border-border/30 cursor-not-allowed"
                       : "bg-card text-muted-foreground border border-border",
                   ].join(" ")}
                 >

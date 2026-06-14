@@ -497,6 +497,7 @@ export type JobDetailDTO = {
   id: string;
   job_number: string;
   status: string;
+  payment_status: string | null;
   customer_complaint: string | null;
   mileage_at_dropoff: number | null;
   dropped_off_at: string | null;
@@ -543,7 +544,7 @@ export const getJobDetail = createServerFn({ method: "POST" })
     const { data: job, error } = await supabaseAdmin
       .from("job_cards")
       .select(
-        "id, job_number, status, customer_complaint, mileage_at_dropoff, dropped_off_at, repair_completed_at, picked_up_at, pickup_requested_date, dropoff_notification_sent, completed_notification_sent, customer_id, vehicle_id, package_id, custom_package_amount",
+        "id, job_number, status, payment_status, customer_complaint, mileage_at_dropoff, dropped_off_at, repair_completed_at, picked_up_at, pickup_requested_date, dropoff_notification_sent, completed_notification_sent, customer_id, vehicle_id, package_id, custom_package_amount",
       )
       .eq("id", data.jobId)
       .eq("workshop_id", workshopId)
@@ -612,6 +613,7 @@ export const getJobDetail = createServerFn({ method: "POST" })
       id: job.id,
       job_number: job.job_number,
       status: job.status ?? "pending",
+      payment_status: job.payment_status ?? null,
       customer_complaint: job.customer_complaint,
       mileage_at_dropoff: job.mileage_at_dropoff,
       dropped_off_at: job.dropped_off_at,
