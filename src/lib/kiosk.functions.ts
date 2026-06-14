@@ -1311,3 +1311,47 @@ export const exportAllJobs = createServerFn({ method: "GET" }).handler(
     });
   },
 );
+
+// --- Public (any signed-in kiosk user): list packages for the New Job flow ---
+export const listPackagesForJob = createServerFn({ method: "GET" }).handler(
+  async (): Promise<ServicePackageDTO[]> => {
+    const user = await requireSessionUser();
+    const { data, error } = await supabaseAdmin
+      .from("service_packages")
+      .select("id, name, price, subtitle, sort_order, is_custom")
+      .eq("workshop_id", user.workshop_id)
+      .order("sort_order", { ascending: true });
+    if (error) throw new Error("Failed to load packages");
+    return (data ?? []).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      price: Number(p.price) || 0,
+      subtitle: p.subtitle,
+      sort_order: Number(p.sort_order) || 0,
+      is_custom: !!p.is_custom,
+    }));
+  },
+);
+
+export type PartsLibraryItem = {
+  id: string;
+  name: string;
+  default_unit: string;
+};
+
+export const listPartsLibrary = createServerFn({ method: "GET" }).handler(
+  async (): Promise<PartsLibraryItem[]> => {
+    const user = await requireSessionUser();
+    const { data, error } = await supabaseAdmin
+      .from("parts_library")
+      .select("id, name, default_unit, sort_order")
+      .eq("workshop_id", user.workshop_id)
+      .order("sort_order", { ascending: true });
+    if (error) throw new Error("Failed to load parts");
+    return (data ?? []).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      default_unit: p.default_unit ?? "pcs",
+    }));
+  },
+);
