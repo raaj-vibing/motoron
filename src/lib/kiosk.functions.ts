@@ -208,6 +208,19 @@ const createJobSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullable()
     .optional(),
+  packageId: z.string().uuid().nullable().optional(),
+  customPackageAmount: z.number().min(0).max(10_000_000).nullable().optional(),
+  parts: z
+    .array(
+      z.object({
+        partName: z.string().trim().min(1).max(120),
+        quantity: z.number().min(0).max(100_000),
+        unit: z.string().trim().min(1).max(20),
+        unitPrice: z.number().min(0).max(10_000_000),
+      }),
+    )
+    .max(50)
+    .optional(),
 });
 
 export type CreateJobResult = {
