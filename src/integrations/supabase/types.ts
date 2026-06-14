@@ -104,6 +104,7 @@ export type Database = {
           job_number: string
           mileage_at_dropoff: number | null
           package_id: string | null
+          payment_status: string | null
           picked_up_at: string | null
           pickup_requested_date: string | null
           repair_completed_at: string | null
@@ -125,6 +126,7 @@ export type Database = {
           job_number: string
           mileage_at_dropoff?: number | null
           package_id?: string | null
+          payment_status?: string | null
           picked_up_at?: string | null
           pickup_requested_date?: string | null
           repair_completed_at?: string | null
@@ -146,6 +148,7 @@ export type Database = {
           job_number?: string
           mileage_at_dropoff?: number | null
           package_id?: string | null
+          payment_status?: string | null
           picked_up_at?: string | null
           pickup_requested_date?: string | null
           repair_completed_at?: string | null

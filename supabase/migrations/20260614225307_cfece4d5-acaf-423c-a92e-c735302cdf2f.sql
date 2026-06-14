@@ -1,0 +1,1 @@
+alter table public.job_cards add column if not exists payment_status text default null;
