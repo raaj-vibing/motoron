@@ -346,12 +346,31 @@ export const createJobCard = createServerFn({ method: "POST" })
         customer_complaint: data.complaint,
         pickup_requested_date: data.pickupRequestedDate ?? null,
         status: "pending",
+        package_id: data.packageId ?? null,
+        custom_package_amount: data.customPackageAmount ?? null,
       })
       .select("id, job_number")
       .single();
     if (jobErr || !job) {
       console.error("[createJobCard:job]", jobErr?.message);
       throw new Error("Failed to create job card");
+    }
+
+    // 5. Insert parts
+    if (data.parts && data.parts.length > 0) {
+      const rows = data.parts.map((p) => ({
+        job_card_id: job.id,
+        part_name: p.partName,
+        quantity: p.quantity,
+        unit: p.unit,
+        unit_price: p.unitPrice,
+        line_total: Number((p.quantity * p.unitPrice).toFixed(2)),
+      }));
+      const { error: partsErr } = await supabaseAdmin.from("job_card_parts").insert(rows);
+      if (partsErr) {
+        console.error("[createJobCard:parts]", partsErr.message);
+        throw new Error("Failed to save parts");
+      }
     }
 
     return {
