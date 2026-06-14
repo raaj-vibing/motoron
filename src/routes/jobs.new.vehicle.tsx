@@ -197,11 +197,14 @@ function VehicleDetailsStep() {
           <div className="grid grid-cols-4 gap-2">
             {TYPES.map((t) => {
               const selected = type === t.value;
+              const disabled = t.value !== "Bike";
               return (
                 <button
                   key={t.value}
                   type="button"
+                  disabled={disabled}
                   onClick={() => {
+                    if (disabled) return;
                     setType(t.value);
                     setErrors((p) => ({ ...p, type: undefined }));
                     if (t.value === "Other") return;
@@ -214,6 +217,8 @@ function VehicleDetailsStep() {
                     "flex items-center justify-center gap-1",
                     selected
                       ? "bg-primary text-white"
+                      : disabled
+                      ? "bg-card text-muted-foreground/30 border border-border/30 cursor-not-allowed"
                       : "bg-card text-muted-foreground border border-border",
                   ].join(" ")}
                 >
