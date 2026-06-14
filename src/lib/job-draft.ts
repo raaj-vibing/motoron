@@ -36,6 +36,7 @@ export type DraftPart = {
   quantity: number;
   unit: string;
   unitPrice: number;
+  lineTotal: number;
 };
 
 export type JobDraft = {

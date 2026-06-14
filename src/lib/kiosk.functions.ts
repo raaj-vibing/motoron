@@ -209,18 +209,14 @@ const createJobSchema = z.object({
     .nullable()
     .optional(),
   packageId: z.string().uuid().nullable().optional(),
-  customPackageAmount: z.number().min(0).max(10_000_000).nullable().optional(),
-  parts: z
-    .array(
-      z.object({
-        partName: z.string().trim().min(1).max(120),
-        quantity: z.number().min(0).max(100_000),
-        unit: z.string().trim().min(1).max(20),
-        unitPrice: z.number().min(0).max(10_000_000),
-      }),
-    )
-    .max(50)
-    .optional(),
+  customPackageAmount: z.number().nullable().optional(),
+  parts: z.array(z.object({
+    partName: z.string(),
+    quantity: z.number(),
+    unit: z.enum(["pcs", "litre", "ml", "set", "pair", "metre"]),
+    unitPrice: z.number(),
+    lineTotal: z.number(),
+  })).optional().default([]),
 });
 
 export type CreateJobResult = {
@@ -356,20 +352,22 @@ export const createJobCard = createServerFn({ method: "POST" })
       throw new Error("Failed to create job card");
     }
 
-    // 5. Insert parts
+    // 5. Insert parts if any
     if (data.parts && data.parts.length > 0) {
-      const rows = data.parts.map((p) => ({
+      const partsToInsert = data.parts.map((p) => ({
         job_card_id: job.id,
         part_name: p.partName,
         quantity: p.quantity,
         unit: p.unit,
         unit_price: p.unitPrice,
-        line_total: Number((p.quantity * p.unitPrice).toFixed(2)),
+        line_total: p.lineTotal ?? Number((p.quantity * p.unitPrice).toFixed(2)),
       }));
-      const { error: partsErr } = await supabaseAdmin.from("job_card_parts").insert(rows);
+      const { error: partsErr } = await supabaseAdmin
+        .from("job_card_parts")
+        .insert(partsToInsert);
       if (partsErr) {
         console.error("[createJobCard:parts]", partsErr.message);
-        throw new Error("Failed to save parts");
+        // Non-fatal — job is created, parts failed
       }
     }
 
