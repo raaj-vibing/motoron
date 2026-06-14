@@ -15,7 +15,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as JobsNewRouteImport } from './routes/jobs.new'
 import { Route as JobsActiveRouteImport } from './routes/jobs.active'
 import { Route as JobsJobIdRouteImport } from './routes/jobs.$jobId'
-import { Route as JobsJobIdInvoiceRouteImport } from './routes/jobs.$jobId_.invoice'
 import { Route as JobsNewIndexRouteImport } from './routes/jobs.new.index'
 import { Route as JobsNewVehicleRouteImport } from './routes/jobs.new.vehicle'
 import { Route as JobsNewComplaintRouteImport } from './routes/jobs.new.complaint'
@@ -49,6 +48,11 @@ const JobsActiveRoute = JobsActiveRouteImport.update({
 const JobsJobIdRoute = JobsJobIdRouteImport.update({
   id: '/jobs/$jobId',
   path: '/jobs/$jobId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JobsJobIdInvoiceRoute = JobsJobIdInvoiceRouteImport.update({
+  id: '/jobs/$jobId_/invoice',
+  path: '/jobs/$jobId/invoice',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JobsNewIndexRoute = JobsNewIndexRouteImport.update({
