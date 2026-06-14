@@ -59,7 +59,7 @@ function VehicleDetailsStep() {
   const saveMileage = useServerFn(updateVehicleMileage);
   const [draft, setDraft] = useState<JobDraft | null>(null);
 
-  const [type, setType] = useState<VehicleType | "">("");
+  const [type, setType] = useState<VehicleType | "">("Bike");
   const [make, setMake] = useState("");
   const [model, setModel] = useState("");
   const [year, setYear] = useState<number | null>(null);
