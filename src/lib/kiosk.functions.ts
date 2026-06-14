@@ -613,6 +613,7 @@ export const getJobDetail = createServerFn({ method: "POST" })
       id: job.id,
       job_number: job.job_number,
       status: job.status ?? "pending",
+      payment_status: job.payment_status ?? null,
       customer_complaint: job.customer_complaint,
       mileage_at_dropoff: job.mileage_at_dropoff,
       dropped_off_at: job.dropped_off_at,
