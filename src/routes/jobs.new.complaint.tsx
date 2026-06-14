@@ -691,6 +691,7 @@ function AddPartDrawer({
                 quantity: qtyNum,
                 unit,
                 unitPrice: priceNum,
+                lineTotal,
               })
             }
             className="w-full h-12 rounded-lg bg-primary text-white font-semibold text-sm active:scale-[0.98] transition disabled:opacity-50"
