@@ -164,6 +164,7 @@ function ComplaintStep() {
         quantity: p.quantity,
         unit: p.unit,
         unitPrice: p.unitPrice,
+        lineTotal: p.lineTotal,
       }));
 
       if (isEdit && draft.editJobId && draft.customer) {
