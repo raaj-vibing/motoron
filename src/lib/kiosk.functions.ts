@@ -802,12 +802,41 @@ export const updateJobCard = createServerFn({ method: "POST" })
           mileage_at_dropoff: vf.current_mileage,
           customer_complaint: data.complaint,
           pickup_requested_date: data.pickupRequestedDate ?? null,
+          package_id: data.packageId ?? null,
+          custom_package_amount: data.customPackageAmount ?? null,
         })
         .eq("id", data.jobId)
         .eq("workshop_id", workshopId);
       if (error) {
         console.error("[updateJobCard:job]", error.message);
         throw new Error("Failed to update job");
+      }
+    }
+
+    // Replace parts: delete existing then insert new
+    {
+      const { error: delErr } = await supabaseAdmin
+        .from("job_card_parts")
+        .delete()
+        .eq("job_card_id", data.jobId);
+      if (delErr) {
+        console.error("[updateJobCard:parts-delete]", delErr.message);
+        throw new Error("Failed to update parts");
+      }
+      if (data.parts && data.parts.length > 0) {
+        const rows = data.parts.map((p) => ({
+          job_card_id: data.jobId,
+          part_name: p.partName,
+          quantity: p.quantity,
+          unit: p.unit,
+          unit_price: p.unitPrice,
+          line_total: Number((p.quantity * p.unitPrice).toFixed(2)),
+        }));
+        const { error: insErr } = await supabaseAdmin.from("job_card_parts").insert(rows);
+        if (insErr) {
+          console.error("[updateJobCard:parts-insert]", insErr.message);
+          throw new Error("Failed to save parts");
+        }
       }
     }
 
