@@ -31,6 +31,13 @@ export type VehicleFormData = {
   current_mileage: number;
 };
 
+export type DraftPart = {
+  partName: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+};
+
 export type JobDraft = {
   phone: string;
   customer: DraftCustomer | null; // null = new customer
@@ -42,6 +49,9 @@ export type JobDraft = {
   initialComplaint?: string;
   initialPickupDate?: string | null;
   initialMileage?: number | null;
+  initialPackageId?: string | null;
+  initialCustomPackageAmount?: number | null;
+  initialParts?: DraftPart[];
 };
 
 export function getJobDraft(): JobDraft | null {
