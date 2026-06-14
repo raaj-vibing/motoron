@@ -81,9 +81,9 @@ function VehicleDetailsStep() {
     }
     setDraft(d);
     if (d.vehicle) {
-      const t = (d.vehicle.type || "") as VehicleType;
+      const t = (d.vehicle.type || "");
       const matched = TYPES.find((x) => x.value.toLowerCase() === t.toLowerCase());
-      setType(matched ? matched.value : "Bike");  // fallback to Bike
+      setType(matched ? matched.value : "Bike");
       setMake(d.vehicle.make ?? "");
       setModel(d.vehicle.model ?? "");
       setYear(d.vehicle.year ?? null);
