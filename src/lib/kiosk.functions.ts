@@ -208,6 +208,19 @@ const createJobSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullable()
     .optional(),
+  packageId: z.string().uuid().nullable().optional(),
+  customPackageAmount: z.number().min(0).max(10_000_000).nullable().optional(),
+  parts: z
+    .array(
+      z.object({
+        partName: z.string().trim().min(1).max(120),
+        quantity: z.number().min(0).max(100_000),
+        unit: z.string().trim().min(1).max(20),
+        unitPrice: z.number().min(0).max(10_000_000),
+      }),
+    )
+    .max(50)
+    .optional(),
 });
 
 export type CreateJobResult = {
@@ -333,12 +346,31 @@ export const createJobCard = createServerFn({ method: "POST" })
         customer_complaint: data.complaint,
         pickup_requested_date: data.pickupRequestedDate ?? null,
         status: "pending",
+        package_id: data.packageId ?? null,
+        custom_package_amount: data.customPackageAmount ?? null,
       })
       .select("id, job_number")
       .single();
     if (jobErr || !job) {
       console.error("[createJobCard:job]", jobErr?.message);
       throw new Error("Failed to create job card");
+    }
+
+    // 5. Insert parts
+    if (data.parts && data.parts.length > 0) {
+      const rows = data.parts.map((p) => ({
+        job_card_id: job.id,
+        part_name: p.partName,
+        quantity: p.quantity,
+        unit: p.unit,
+        unit_price: p.unitPrice,
+        line_total: Number((p.quantity * p.unitPrice).toFixed(2)),
+      }));
+      const { error: partsErr } = await supabaseAdmin.from("job_card_parts").insert(rows);
+      if (partsErr) {
+        console.error("[createJobCard:parts]", partsErr.message);
+        throw new Error("Failed to save parts");
+      }
     }
 
     return {
@@ -675,6 +707,19 @@ const updateJobSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullable()
     .optional(),
+  packageId: z.string().uuid().nullable().optional(),
+  customPackageAmount: z.number().min(0).max(10_000_000).nullable().optional(),
+  parts: z
+    .array(
+      z.object({
+        partName: z.string().trim().min(1).max(120),
+        quantity: z.number().min(0).max(100_000),
+        unit: z.string().trim().min(1).max(20),
+        unitPrice: z.number().min(0).max(10_000_000),
+      }),
+    )
+    .max(50)
+    .optional(),
 });
 
 export const updateJobCard = createServerFn({ method: "POST" })
@@ -757,12 +802,41 @@ export const updateJobCard = createServerFn({ method: "POST" })
           mileage_at_dropoff: vf.current_mileage,
           customer_complaint: data.complaint,
           pickup_requested_date: data.pickupRequestedDate ?? null,
+          package_id: data.packageId ?? null,
+          custom_package_amount: data.customPackageAmount ?? null,
         })
         .eq("id", data.jobId)
         .eq("workshop_id", workshopId);
       if (error) {
         console.error("[updateJobCard:job]", error.message);
         throw new Error("Failed to update job");
+      }
+    }
+
+    // Replace parts: delete existing then insert new
+    {
+      const { error: delErr } = await supabaseAdmin
+        .from("job_card_parts")
+        .delete()
+        .eq("job_card_id", data.jobId);
+      if (delErr) {
+        console.error("[updateJobCard:parts-delete]", delErr.message);
+        throw new Error("Failed to update parts");
+      }
+      if (data.parts && data.parts.length > 0) {
+        const rows = data.parts.map((p) => ({
+          job_card_id: data.jobId,
+          part_name: p.partName,
+          quantity: p.quantity,
+          unit: p.unit,
+          unit_price: p.unitPrice,
+          line_total: Number((p.quantity * p.unitPrice).toFixed(2)),
+        }));
+        const { error: insErr } = await supabaseAdmin.from("job_card_parts").insert(rows);
+        if (insErr) {
+          console.error("[updateJobCard:parts-insert]", insErr.message);
+          throw new Error("Failed to save parts");
+        }
       }
     }
 
@@ -1235,5 +1309,49 @@ export const exportAllJobs = createServerFn({ method: "GET" }).handler(
         total_amount: pkgAmt + (partsByJob.get(r.id) ?? 0),
       };
     });
+  },
+);
+
+// --- Public (any signed-in kiosk user): list packages for the New Job flow ---
+export const listPackagesForJob = createServerFn({ method: "GET" }).handler(
+  async (): Promise<ServicePackageDTO[]> => {
+    const user = await requireSessionUser();
+    const { data, error } = await supabaseAdmin
+      .from("service_packages")
+      .select("id, name, price, subtitle, sort_order, is_custom")
+      .eq("workshop_id", user.workshop_id)
+      .order("sort_order", { ascending: true });
+    if (error) throw new Error("Failed to load packages");
+    return (data ?? []).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      price: Number(p.price) || 0,
+      subtitle: p.subtitle,
+      sort_order: Number(p.sort_order) || 0,
+      is_custom: !!p.is_custom,
+    }));
+  },
+);
+
+export type PartsLibraryItem = {
+  id: string;
+  name: string;
+  default_unit: string;
+};
+
+export const listPartsLibrary = createServerFn({ method: "GET" }).handler(
+  async (): Promise<PartsLibraryItem[]> => {
+    const user = await requireSessionUser();
+    const { data, error } = await supabaseAdmin
+      .from("parts_library")
+      .select("id, name, default_unit, sort_order")
+      .eq("workshop_id", user.workshop_id)
+      .order("sort_order", { ascending: true });
+    if (error) throw new Error("Failed to load parts");
+    return (data ?? []).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      default_unit: p.default_unit ?? "pcs",
+    }));
   },
 );
