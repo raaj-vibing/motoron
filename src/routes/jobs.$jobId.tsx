@@ -371,6 +371,7 @@ function JobDetailPage() {
                 quantity: p.quantity,
                 unit: p.unit,
                 unitPrice: p.unit_price,
+                lineTotal: p.line_total,
               })),
             });
             navigate({ to: "/jobs/new/vehicle" });
