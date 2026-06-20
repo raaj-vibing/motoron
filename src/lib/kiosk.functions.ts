@@ -16,21 +16,19 @@ import {
 export type KioskUserDTO = Omit<KioskUserDbRow, never>;
 
 // --- Public: list users for the login picker (no PIN exposed) ---
-export const listKioskUsers = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const { data, error } = await supabaseAdmin
-      .from("users")
-      .select("id, name")
-      .eq("workshop_id", WORKSHOP_ID)
-      .eq("status", "active")
-      .order("name", { ascending: true });
-    if (error) {
-      console.error("[listKioskUsers]", error.message);
-      throw new Error("Service temporarily unavailable");
-    }
-    return (data ?? []) as { id: string; name: string }[];
-  },
-);
+export const listKioskUsers = createServerFn({ method: "GET" }).handler(async () => {
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .select("id, name")
+    .eq("workshop_id", WORKSHOP_ID)
+    .eq("status", "active")
+    .order("name", { ascending: true });
+  if (error) {
+    console.error("[listKioskUsers]", error.message);
+    throw new Error("Service temporarily unavailable");
+  }
+  return (data ?? []) as { id: string; name: string }[];
+});
 
 // --- Public: verify PIN, set sealed httpOnly session cookie ---
 const verifyPinSchema = z.object({
@@ -63,20 +61,16 @@ export const verifyPin = createServerFn({ method: "POST" })
   });
 
 // --- Public: who am I? Returns null when no/expired cookie ---
-export const getCurrentKioskUser = createServerFn({ method: "GET" }).handler(
-  async (): Promise<KioskUserDTO | null> => {
-    return await readSessionUser();
-  },
-);
+export const getCurrentKioskUser = createServerFn({ method: "GET" }).handler(async (): Promise<KioskUserDTO | null> => {
+  return await readSessionUser();
+});
 
 // --- Public: clear session ---
-export const logoutKiosk = createServerFn({ method: "POST" }).handler(
-  async () => {
-    const session = await useSession<SessionData>(sessionConfig());
-    await session.clear();
-    return { ok: true as const };
-  },
-);
+export const logoutKiosk = createServerFn({ method: "POST" }).handler(async () => {
+  const session = await useSession<SessionData>(sessionConfig());
+  await session.clear();
+  return { ok: true as const };
+});
 
 // --- Protected: phone lookup for new-job flow ---
 const lookupSchema = z.object({
@@ -121,9 +115,7 @@ export const lookupCustomerByPhone = createServerFn({ method: "POST" })
 
     const { data: vehicles, error: vErr } = await supabaseAdmin
       .from("vehicles")
-      .select(
-        "id, customer_id, make, model, year, licence_plate, type, colour, last_mileage",
-      )
+      .select("id, customer_id, make, model, year, licence_plate, type, colour, last_mileage")
       .eq("customer_id", customer.id)
       .eq("workshop_id", user.workshop_id)
       .order("created_at", { ascending: false });
@@ -210,13 +202,18 @@ const createJobSchema = z.object({
     .optional(),
   packageId: z.string().uuid().nullable().optional(),
   customPackageAmount: z.number().nullable().optional(),
-  parts: z.array(z.object({
-    partName: z.string(),
-    quantity: z.number(),
-    unit: z.enum(["pcs", "litre", "ml", "set", "pair", "metre"]),
-    unitPrice: z.number(),
-    lineTotal: z.number(),
-  })).optional().default([]),
+  parts: z
+    .array(
+      z.object({
+        partName: z.string(),
+        quantity: z.number(),
+        unit: z.enum(["pcs", "litre", "ml", "set", "pair", "metre"]),
+        unitPrice: z.number(),
+        lineTotal: z.number(),
+      }),
+    )
+    .optional()
+    .default([]),
 });
 
 export type CreateJobResult = {
@@ -285,7 +282,7 @@ export const createJobCard = createServerFn({ method: "POST" })
         .insert({
           customer_id: customerId,
           workshop_id: workshopId,
-          type: vf.type,
+          type: vf.type.toLowerCase(),
           make: vf.make,
           model: vf.model,
           year: vf.year,
@@ -362,9 +359,7 @@ export const createJobCard = createServerFn({ method: "POST" })
         unit_price: p.unitPrice,
         line_total: p.lineTotal ?? Number((p.quantity * p.unitPrice).toFixed(2)),
       }));
-      const { error: partsErr } = await supabaseAdmin
-        .from("job_card_parts")
-        .insert(partsToInsert);
+      const { error: partsErr } = await supabaseAdmin.from("job_card_parts").insert(partsToInsert);
       if (partsErr) {
         console.error("[createJobCard:parts]", partsErr.message);
         // Non-fatal — job is created, parts failed
@@ -402,9 +397,7 @@ export const listActiveJobs = createServerFn({ method: "GET" }).handler(
 
     const { data: jobs, error } = await supabaseAdmin
       .from("job_cards")
-      .select(
-        "id, job_number, status, dropped_off_at, customer_id, vehicle_id, package_id, custom_package_amount",
-      )
+      .select("id, job_number, status, dropped_off_at, customer_id, vehicle_id, package_id, custom_package_amount")
       .eq("workshop_id", workshopId)
       .in("status", ["pending", "in_progress", "repair_completed"])
       .order("dropped_off_at", { ascending: true });
@@ -435,20 +428,14 @@ export const listActiveJobs = createServerFn({ method: "GET" }).handler(
             .select("job_card_id, line_total, unit_price, quantity")
             .in("job_card_id", jobIds)
         : Promise.resolve({ data: [], error: null } as const),
-      supabaseAdmin
-        .from("workshops")
-        .select("job_duration_threshold")
-        .eq("id", workshopId)
-        .maybeSingle(),
+      supabaseAdmin.from("workshops").select("job_duration_threshold").eq("id", workshopId).maybeSingle(),
     ]);
 
     const customers = new Map((customersRes.data ?? []).map((c: any) => [c.id, c.name as string]));
     const vehicles = new Map(
       (vehiclesRes.data ?? []).map((v: any) => [v.id, { make: v.make as string, model: v.model as string }]),
     );
-    const packages = new Map(
-      (packagesRes.data ?? []).map((p: any) => [p.id, Number(p.price) || 0]),
-    );
+    const packages = new Map((packagesRes.data ?? []).map((p: any) => [p.id, Number(p.price) || 0]));
     const partsByJob = new Map<string, number>();
     for (const p of (partsRes.data ?? []) as any[]) {
       const lt = Number(p.line_total ?? Number(p.unit_price) * Number(p.quantity)) || 0;
@@ -456,9 +443,7 @@ export const listActiveJobs = createServerFn({ method: "GET" }).handler(
     }
 
     const out: ActiveJobDTO[] = rows.map((r) => {
-      const pkgAmt = r.package_id
-        ? packages.get(r.package_id) ?? 0
-        : Number(r.custom_package_amount) || 0;
+      const pkgAmt = r.package_id ? (packages.get(r.package_id) ?? 0) : Number(r.custom_package_amount) || 0;
       const partsAmt = partsByJob.get(r.id) ?? 0;
       const v = r.vehicle_id ? vehicles.get(r.vehicle_id) : undefined;
       return {
@@ -479,7 +464,6 @@ export const listActiveJobs = createServerFn({ method: "GET" }).handler(
     };
   },
 );
-
 
 // --- Protected: full job detail ---
 const jobIdSchema = z.object({ jobId: z.string().uuid() });
@@ -553,11 +537,7 @@ export const getJobDetail = createServerFn({ method: "POST" })
 
     const [custRes, vehRes, pkgRes, partsRes, priorRes, wsRes] = await Promise.all([
       job.customer_id
-        ? supabaseAdmin
-            .from("customers")
-            .select("id, name, phone, address")
-            .eq("id", job.customer_id)
-            .maybeSingle()
+        ? supabaseAdmin.from("customers").select("id, name, phone, address").eq("id", job.customer_id).maybeSingle()
         : Promise.resolve({ data: null, error: null } as const),
       job.vehicle_id
         ? supabaseAdmin
@@ -567,11 +547,7 @@ export const getJobDetail = createServerFn({ method: "POST" })
             .maybeSingle()
         : Promise.resolve({ data: null, error: null } as const),
       job.package_id
-        ? supabaseAdmin
-            .from("service_packages")
-            .select("id, name, price")
-            .eq("id", job.package_id)
-            .maybeSingle()
+        ? supabaseAdmin.from("service_packages").select("id, name, price").eq("id", job.package_id).maybeSingle()
         : Promise.resolve({ data: null, error: null } as const),
       supabaseAdmin
         .from("job_card_parts")
@@ -588,11 +564,7 @@ export const getJobDetail = createServerFn({ method: "POST" })
             .order("dropped_off_at", { ascending: false })
             .limit(5)
         : Promise.resolve({ data: [], error: null } as const),
-      supabaseAdmin
-        .from("workshops")
-        .select("id, name, phone, maps_link, hours")
-        .eq("id", workshopId)
-        .maybeSingle(),
+      supabaseAdmin.from("workshops").select("id, name, phone, maps_link, hours").eq("id", workshopId).maybeSingle(),
     ]);
 
     const parts: JobDetailPart[] = ((partsRes.data ?? []) as any[]).map((p) => ({
@@ -604,9 +576,7 @@ export const getJobDetail = createServerFn({ method: "POST" })
       line_total: Number(p.line_total ?? Number(p.unit_price) * Number(p.quantity)) || 0,
     }));
 
-    const pkgAmt = pkgRes.data
-      ? Number((pkgRes.data as any).price) || 0
-      : Number(job.custom_package_amount) || 0;
+    const pkgAmt = pkgRes.data ? Number((pkgRes.data as any).price) || 0 : Number(job.custom_package_amount) || 0;
     const partsAmt = parts.reduce((s, p) => s + p.line_total, 0);
 
     return {
@@ -624,7 +594,13 @@ export const getJobDetail = createServerFn({ method: "POST" })
       completed_notification_sent: !!job.completed_notification_sent,
       customer: (custRes.data as any) ?? null,
       vehicle: (vehRes.data as any) ?? null,
-      package: pkgRes.data ? { id: (pkgRes.data as any).id, name: (pkgRes.data as any).name, price: Number((pkgRes.data as any).price) || 0 } : null,
+      package: pkgRes.data
+        ? {
+            id: (pkgRes.data as any).id,
+            name: (pkgRes.data as any).name,
+            price: Number((pkgRes.data as any).price) || 0,
+          }
+        : null,
       custom_package_amount: job.custom_package_amount != null ? Number(job.custom_package_amount) : null,
       parts,
       total_amount: pkgAmt + partsAmt,
@@ -672,10 +648,7 @@ export const markNotificationSent = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => markNotifSchema.parse(input))
   .handler(async ({ data }) => {
     const user = await requireSessionUser();
-    const patch =
-      data.kind === "dropoff"
-        ? { dropoff_notification_sent: true }
-        : { completed_notification_sent: true };
+    const patch = data.kind === "dropoff" ? { dropoff_notification_sent: true } : { completed_notification_sent: true };
     const { error } = await supabaseAdmin
       .from("job_cards")
       .update(patch)
@@ -757,7 +730,7 @@ export const updateJobCard = createServerFn({ method: "POST" })
       const { error } = await supabaseAdmin
         .from("vehicles")
         .update({
-          type: vf.type,
+          type: vf.type.toLowerCase(),
           make: vf.make,
           model: vf.model,
           year: vf.year,
@@ -777,7 +750,7 @@ export const updateJobCard = createServerFn({ method: "POST" })
         .insert({
           customer_id: data.customerId,
           workshop_id: workshopId,
-          type: vf.type,
+          type: vf.type.toLowerCase(),
           make: vf.make,
           model: vf.model,
           year: vf.year,
@@ -815,10 +788,7 @@ export const updateJobCard = createServerFn({ method: "POST" })
 
     // Replace parts: delete existing then insert new
     {
-      const { error: delErr } = await supabaseAdmin
-        .from("job_card_parts")
-        .delete()
-        .eq("job_card_id", data.jobId);
+      const { error: delErr } = await supabaseAdmin.from("job_card_parts").delete().eq("job_card_id", data.jobId);
       if (delErr) {
         console.error("[updateJobCard:parts-delete]", delErr.message);
         throw new Error("Failed to update parts");
@@ -843,7 +813,6 @@ export const updateJobCard = createServerFn({ method: "POST" })
     return { ok: true as const, jobId: data.jobId };
   });
 
-
 // ============================================================
 // WORKSHOP ADMIN — server functions
 // ============================================================
@@ -861,8 +830,14 @@ const updateAccountSchema = z.object({
   name: z.string().trim().min(1).max(120),
   email: z.string().trim().email().max(255).nullable().or(z.literal("")),
   phone: z.string().trim().max(20).nullable().or(z.literal("")),
-  currentPin: z.string().regex(/^\d{4}$/).optional(),
-  newPin: z.string().regex(/^\d{4}$/).optional(),
+  currentPin: z
+    .string()
+    .regex(/^\d{4}$/)
+    .optional(),
+  newPin: z
+    .string()
+    .regex(/^\d{4}$/)
+    .optional(),
 });
 
 export const updateMyAccount = createServerFn({ method: "POST" })
@@ -876,8 +851,7 @@ export const updateMyAccount = createServerFn({ method: "POST" })
     };
     if (data.newPin) {
       if (!data.currentPin) throw new Error("Current PIN required");
-      const { data: row } = await supabaseAdmin
-        .from("users").select("pin").eq("id", user.id).maybeSingle();
+      const { data: row } = await supabaseAdmin.from("users").select("pin").eq("id", user.id).maybeSingle();
       if (!row || row.pin !== data.currentPin) throw new Error("Current PIN is incorrect");
       patch.pin = data.newPin;
     }
@@ -904,25 +878,25 @@ export type WorkshopProfileDTO = {
   auto_archive_months: number;
 };
 
-export const getWorkshopProfile = createServerFn({ method: "GET" }).handler(
-  async (): Promise<WorkshopProfileDTO> => {
-    const user = await requireSessionUser();
-    requireAdmin(user);
-    const { data, error } = await supabaseAdmin
-      .from("workshops")
-      .select("id, name, phone, address, maps_link, logo, hours, gst_number, job_duration_threshold, notify_dropoff, notify_completed, dropoff_template, completed_template, auto_archive_months")
-      .eq("id", user.workshop_id)
-      .maybeSingle();
-    if (error || !data) throw new Error("Workshop not found");
-    return {
-      ...data,
-      job_duration_threshold: Number(data.job_duration_threshold ?? 3),
-      auto_archive_months: Number((data as any).auto_archive_months ?? 6),
-      notify_dropoff: !!data.notify_dropoff,
-      notify_completed: !!data.notify_completed,
-    } as WorkshopProfileDTO;
-  },
-);
+export const getWorkshopProfile = createServerFn({ method: "GET" }).handler(async (): Promise<WorkshopProfileDTO> => {
+  const user = await requireSessionUser();
+  requireAdmin(user);
+  const { data, error } = await supabaseAdmin
+    .from("workshops")
+    .select(
+      "id, name, phone, address, maps_link, logo, hours, gst_number, job_duration_threshold, notify_dropoff, notify_completed, dropoff_template, completed_template, auto_archive_months",
+    )
+    .eq("id", user.workshop_id)
+    .maybeSingle();
+  if (error || !data) throw new Error("Workshop not found");
+  return {
+    ...data,
+    job_duration_threshold: Number(data.job_duration_threshold ?? 3),
+    auto_archive_months: Number((data as any).auto_archive_months ?? 6),
+    notify_dropoff: !!data.notify_dropoff,
+    notify_completed: !!data.notify_completed,
+  } as WorkshopProfileDTO;
+});
 
 const updateProfileSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -930,11 +904,14 @@ const updateProfileSchema = z.object({
   address: z.string().trim().max(1000).nullable().or(z.literal("")),
   maps_link: z.string().trim().max(500).nullable().or(z.literal("")),
   logo: z.string().max(2_000_000).nullable().or(z.literal("")),
-  hours: z.record(z.string(), z.object({
-    open: z.string().regex(/^\d{2}:\d{2}$/),
-    close: z.string().regex(/^\d{2}:\d{2}$/),
-    closed: z.boolean(),
-  })),
+  hours: z.record(
+    z.string(),
+    z.object({
+      open: z.string().regex(/^\d{2}:\d{2}$/),
+      close: z.string().regex(/^\d{2}:\d{2}$/),
+      closed: z.boolean(),
+    }),
+  ),
   gst_number: z.string().trim().max(30).nullable().or(z.literal("")),
 });
 
@@ -943,15 +920,18 @@ export const updateWorkshopProfile = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireSessionUser();
     requireAdmin(user);
-    const { error } = await supabaseAdmin.from("workshops").update({
-      name: data.name,
-      phone: data.phone || null,
-      address: data.address || null,
-      maps_link: data.maps_link || null,
-      logo: data.logo || null,
-      hours: data.hours,
-      gst_number: data.gst_number || null,
-    }).eq("id", user.workshop_id);
+    const { error } = await supabaseAdmin
+      .from("workshops")
+      .update({
+        name: data.name,
+        phone: data.phone || null,
+        address: data.address || null,
+        maps_link: data.maps_link || null,
+        logo: data.logo || null,
+        hours: data.hours,
+        gst_number: data.gst_number || null,
+      })
+      .eq("id", user.workshop_id);
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });
@@ -981,8 +961,10 @@ export const updateAutoArchive = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireSessionUser();
     requireAdmin(user);
-    const { error } = await supabaseAdmin.from("workshops")
-      .update({ auto_archive_months: data.months }).eq("id", user.workshop_id);
+    const { error } = await supabaseAdmin
+      .from("workshops")
+      .update({ auto_archive_months: data.months })
+      .eq("id", user.workshop_id);
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });
@@ -998,19 +980,17 @@ export type TeamMemberDTO = {
   email: string | null;
 };
 
-export const listTeam = createServerFn({ method: "GET" }).handler(
-  async (): Promise<TeamMemberDTO[]> => {
-    const user = await requireSessionUser();
-    requireAdmin(user);
-    const { data, error } = await supabaseAdmin
-      .from("users")
-      .select("id, name, role, access_level, status, phone, email")
-      .eq("workshop_id", user.workshop_id)
-      .order("created_at", { ascending: true });
-    if (error) throw new Error(error.message);
-    return (data ?? []) as TeamMemberDTO[];
-  },
-);
+export const listTeam = createServerFn({ method: "GET" }).handler(async (): Promise<TeamMemberDTO[]> => {
+  const user = await requireSessionUser();
+  requireAdmin(user);
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .select("id, name, role, access_level, status, phone, email")
+    .eq("workshop_id", user.workshop_id)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as TeamMemberDTO[];
+});
 
 export const deleteTeamMember = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => z.object({ userId: z.string().uuid() }).parse(i))
@@ -1018,12 +998,18 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
     const user = await requireSessionUser();
     requireAdmin(user);
     const { data: target } = await supabaseAdmin
-      .from("users").select("role").eq("id", data.userId)
-      .eq("workshop_id", user.workshop_id).maybeSingle();
+      .from("users")
+      .select("role")
+      .eq("id", data.userId)
+      .eq("workshop_id", user.workshop_id)
+      .maybeSingle();
     if (!target) throw new Error("User not found");
     if (target.role === "owner") throw new Error("Cannot remove the owner");
-    const { error } = await supabaseAdmin.from("users").delete()
-      .eq("id", data.userId).eq("workshop_id", user.workshop_id);
+    const { error } = await supabaseAdmin
+      .from("users")
+      .delete()
+      .eq("id", data.userId)
+      .eq("workshop_id", user.workshop_id);
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });
@@ -1038,23 +1024,24 @@ export type ServicePackageDTO = {
   is_custom: boolean;
 };
 
-export const listServicePackages = createServerFn({ method: "GET" }).handler(
-  async (): Promise<ServicePackageDTO[]> => {
-    const user = await requireSessionUser();
-    requireAdmin(user);
-    const { data, error } = await supabaseAdmin
-      .from("service_packages")
-      .select("id, name, price, subtitle, sort_order, is_custom")
-      .eq("workshop_id", user.workshop_id)
-      .order("sort_order", { ascending: true });
-    if (error) throw new Error(error.message);
-    return (data ?? []).map((p: any) => ({
-      id: p.id, name: p.name, price: Number(p.price) || 0,
-      subtitle: p.subtitle, sort_order: Number(p.sort_order) || 0,
-      is_custom: !!p.is_custom,
-    }));
-  },
-);
+export const listServicePackages = createServerFn({ method: "GET" }).handler(async (): Promise<ServicePackageDTO[]> => {
+  const user = await requireSessionUser();
+  requireAdmin(user);
+  const { data, error } = await supabaseAdmin
+    .from("service_packages")
+    .select("id, name, price, subtitle, sort_order, is_custom")
+    .eq("workshop_id", user.workshop_id)
+    .order("sort_order", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    price: Number(p.price) || 0,
+    subtitle: p.subtitle,
+    sort_order: Number(p.sort_order) || 0,
+    is_custom: !!p.is_custom,
+  }));
+});
 
 const pkgInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -1067,13 +1054,21 @@ export const createServicePackage = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireSessionUser();
     requireAdmin(user);
-    const { data: maxRow } = await supabaseAdmin.from("service_packages")
-      .select("sort_order").eq("workshop_id", user.workshop_id)
-      .order("sort_order", { ascending: false }).limit(1).maybeSingle();
+    const { data: maxRow } = await supabaseAdmin
+      .from("service_packages")
+      .select("sort_order")
+      .eq("workshop_id", user.workshop_id)
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
     const nextOrder = (Number(maxRow?.sort_order) || 0) + 1;
     const { error } = await supabaseAdmin.from("service_packages").insert({
-      name: data.name, price: data.price, subtitle: data.subtitle || null,
-      sort_order: nextOrder, workshop_id: user.workshop_id, is_custom: false,
+      name: data.name,
+      price: data.price,
+      subtitle: data.subtitle || null,
+      sort_order: nextOrder,
+      workshop_id: user.workshop_id,
+      is_custom: false,
     });
     if (error) throw new Error(error.message);
     return { ok: true as const };
@@ -1084,9 +1079,15 @@ export const updateServicePackage = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireSessionUser();
     requireAdmin(user);
-    const { error } = await supabaseAdmin.from("service_packages").update({
-      name: data.name, price: data.price, subtitle: data.subtitle || null,
-    }).eq("id", data.id).eq("workshop_id", user.workshop_id);
+    const { error } = await supabaseAdmin
+      .from("service_packages")
+      .update({
+        name: data.name,
+        price: data.price,
+        subtitle: data.subtitle || null,
+      })
+      .eq("id", data.id)
+      .eq("workshop_id", user.workshop_id);
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });
@@ -1096,29 +1097,39 @@ export const deleteServicePackage = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireSessionUser();
     requireAdmin(user);
-    const { error } = await supabaseAdmin.from("service_packages")
-      .delete().eq("id", data.id).eq("workshop_id", user.workshop_id);
+    const { error } = await supabaseAdmin
+      .from("service_packages")
+      .delete()
+      .eq("id", data.id)
+      .eq("workshop_id", user.workshop_id);
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });
 
 export const reorderServicePackage = createServerFn({ method: "POST" })
-  .inputValidator((i: unknown) => z.object({
-    id: z.string().uuid(),
-    direction: z.enum(["up", "down"]),
-  }).parse(i))
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        direction: z.enum(["up", "down"]),
+      })
+      .parse(i),
+  )
   .handler(async ({ data }) => {
     const user = await requireSessionUser();
     requireAdmin(user);
-    const { data: rows, error } = await supabaseAdmin.from("service_packages")
-      .select("id, sort_order").eq("workshop_id", user.workshop_id)
+    const { data: rows, error } = await supabaseAdmin
+      .from("service_packages")
+      .select("id, sort_order")
+      .eq("workshop_id", user.workshop_id)
       .order("sort_order", { ascending: true });
     if (error || !rows) throw new Error(error?.message ?? "Failed");
     const idx = rows.findIndex((r: any) => r.id === data.id);
     if (idx < 0) throw new Error("Not found");
     const swapIdx = data.direction === "up" ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= rows.length) return { ok: true as const };
-    const a = rows[idx] as any, b = rows[swapIdx] as any;
+    const a = rows[idx] as any,
+      b = rows[swapIdx] as any;
     await supabaseAdmin.from("service_packages").update({ sort_order: b.sort_order }).eq("id", a.id);
     await supabaseAdmin.from("service_packages").update({ sort_order: a.sort_order }).eq("id", b.id);
     return { ok: true as const };
@@ -1132,18 +1143,17 @@ export type PartDTO = {
   sort_order: number;
 };
 
-export const listParts = createServerFn({ method: "GET" }).handler(
-  async (): Promise<PartDTO[]> => {
-    const user = await requireSessionUser();
-    requireAdmin(user);
-    const { data, error } = await supabaseAdmin.from("parts_library")
-      .select("id, name, default_unit, sort_order")
-      .eq("workshop_id", user.workshop_id)
-      .order("sort_order", { ascending: true });
-    if (error) throw new Error(error.message);
-    return (data ?? []) as PartDTO[];
-  },
-);
+export const listParts = createServerFn({ method: "GET" }).handler(async (): Promise<PartDTO[]> => {
+  const user = await requireSessionUser();
+  requireAdmin(user);
+  const { data, error } = await supabaseAdmin
+    .from("parts_library")
+    .select("id, name, default_unit, sort_order")
+    .eq("workshop_id", user.workshop_id)
+    .order("sort_order", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as PartDTO[];
+});
 
 const partInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -1155,29 +1165,41 @@ export const createPart = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireSessionUser();
     requireAdmin(user);
-    const { data: maxRow } = await supabaseAdmin.from("parts_library")
-      .select("sort_order").eq("workshop_id", user.workshop_id)
-      .order("sort_order", { ascending: false }).limit(1).maybeSingle();
+    const { data: maxRow } = await supabaseAdmin
+      .from("parts_library")
+      .select("sort_order")
+      .eq("workshop_id", user.workshop_id)
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
     const nextOrder = (Number(maxRow?.sort_order) || 0) + 1;
     const { error } = await supabaseAdmin.from("parts_library").insert({
-      name: data.name, default_unit: data.default_unit,
-      sort_order: nextOrder, workshop_id: user.workshop_id,
+      name: data.name,
+      default_unit: data.default_unit,
+      sort_order: nextOrder,
+      workshop_id: user.workshop_id,
     });
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });
 
 export const updatePart = createServerFn({ method: "POST" })
-  .inputValidator((i: unknown) => z.object({
-    id: z.string().uuid(),
-    name: z.string().trim().min(1).max(120),
-  }).parse(i))
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        name: z.string().trim().min(1).max(120),
+      })
+      .parse(i),
+  )
   .handler(async ({ data }) => {
     const user = await requireSessionUser();
     requireAdmin(user);
-    const { error } = await supabaseAdmin.from("parts_library")
+    const { error } = await supabaseAdmin
+      .from("parts_library")
       .update({ name: data.name })
-      .eq("id", data.id).eq("workshop_id", user.workshop_id);
+      .eq("id", data.id)
+      .eq("workshop_id", user.workshop_id);
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });
@@ -1187,8 +1209,11 @@ export const deletePart = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireSessionUser();
     requireAdmin(user);
-    const { error } = await supabaseAdmin.from("parts_library")
-      .delete().eq("id", data.id).eq("workshop_id", user.workshop_id);
+    const { error } = await supabaseAdmin
+      .from("parts_library")
+      .delete()
+      .eq("id", data.id)
+      .eq("workshop_id", user.workshop_id);
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });
@@ -1202,24 +1227,38 @@ export const searchClosedJobs = createServerFn({ method: "POST" })
     const user = await requireSessionUser();
     requireAdmin(user);
     const workshopId = user.workshop_id;
-    const { data: jobs, error } = await supabaseAdmin.from("job_cards")
+    const { data: jobs, error } = await supabaseAdmin
+      .from("job_cards")
       .select("id, job_number, status, dropped_off_at, customer_id, vehicle_id, package_id, custom_package_amount")
-      .eq("workshop_id", workshopId).eq("status", "closed")
-      .order("picked_up_at", { ascending: false }).limit(200);
+      .eq("workshop_id", workshopId)
+      .eq("status", "closed")
+      .order("picked_up_at", { ascending: false })
+      .limit(200);
     if (error) throw new Error(error.message);
     const rows = jobs ?? [];
     if (rows.length === 0) return [];
 
-    const customerIds = [...new Set(rows.map(r => r.customer_id).filter(Boolean))] as string[];
-    const vehicleIds = [...new Set(rows.map(r => r.vehicle_id).filter(Boolean))] as string[];
-    const packageIds = [...new Set(rows.map(r => r.package_id).filter(Boolean))] as string[];
-    const jobIds = rows.map(r => r.id);
+    const customerIds = [...new Set(rows.map((r) => r.customer_id).filter(Boolean))] as string[];
+    const vehicleIds = [...new Set(rows.map((r) => r.vehicle_id).filter(Boolean))] as string[];
+    const packageIds = [...new Set(rows.map((r) => r.package_id).filter(Boolean))] as string[];
+    const jobIds = rows.map((r) => r.id);
 
     const [cRes, vRes, pRes, prRes] = await Promise.all([
-      customerIds.length ? supabaseAdmin.from("customers").select("id, name, phone").in("id", customerIds) : Promise.resolve({ data: [] } as const),
-      vehicleIds.length ? supabaseAdmin.from("vehicles").select("id, make, model, licence_plate").in("id", vehicleIds) : Promise.resolve({ data: [] } as const),
-      packageIds.length ? supabaseAdmin.from("service_packages").select("id, price").in("id", packageIds) : Promise.resolve({ data: [] } as const),
-      jobIds.length ? supabaseAdmin.from("job_card_parts").select("job_card_id, line_total, unit_price, quantity").in("job_card_id", jobIds) : Promise.resolve({ data: [] } as const),
+      customerIds.length
+        ? supabaseAdmin.from("customers").select("id, name, phone").in("id", customerIds)
+        : Promise.resolve({ data: [] } as const),
+      vehicleIds.length
+        ? supabaseAdmin.from("vehicles").select("id, make, model, licence_plate").in("id", vehicleIds)
+        : Promise.resolve({ data: [] } as const),
+      packageIds.length
+        ? supabaseAdmin.from("service_packages").select("id, price").in("id", packageIds)
+        : Promise.resolve({ data: [] } as const),
+      jobIds.length
+        ? supabaseAdmin
+            .from("job_card_parts")
+            .select("job_card_id, line_total, unit_price, quantity")
+            .in("job_card_id", jobIds)
+        : Promise.resolve({ data: [] } as const),
     ]);
     const cust = new Map((cRes.data ?? []).map((c: any) => [c.id, c]));
     const veh = new Map((vRes.data ?? []).map((v: any) => [v.id, v]));
@@ -1234,16 +1273,20 @@ export const searchClosedJobs = createServerFn({ method: "POST" })
     for (const r of rows) {
       const c = (r.customer_id && cust.get(r.customer_id)) as any;
       const v = (r.vehicle_id && veh.get(r.vehicle_id)) as any;
-      const haystack = [
-        r.job_number, c?.name, c?.phone, v?.make, v?.model, v?.licence_plate,
-      ].filter(Boolean).join(" ").toLowerCase();
+      const haystack = [r.job_number, c?.name, c?.phone, v?.make, v?.model, v?.licence_plate]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
       if (q && !haystack.includes(q)) continue;
       const pkgAmt = r.package_id ? (pkg.get(r.package_id) ?? 0) : Number(r.custom_package_amount) || 0;
       out.push({
-        id: r.id, job_number: r.job_number, status: r.status ?? "closed",
+        id: r.id,
+        job_number: r.job_number,
+        status: r.status ?? "closed",
         dropped_off_at: r.dropped_off_at,
         customer_name: c?.name ?? "—",
-        vehicle_make: v?.make ?? "", vehicle_model: v?.model ?? "",
+        vehicle_make: v?.make ?? "",
+        vehicle_model: v?.model ?? "",
         total_amount: pkgAmt + (partsByJob.get(r.id) ?? 0),
       });
     }
@@ -1263,75 +1306,86 @@ export type ExportRowDTO = {
   total_amount: number;
 };
 
-export const exportAllJobs = createServerFn({ method: "GET" }).handler(
-  async (): Promise<ExportRowDTO[]> => {
-    const user = await requireSessionUser();
-    requireAdmin(user);
-    const workshopId = user.workshop_id;
-    const { data: jobs, error } = await supabaseAdmin.from("job_cards")
-      .select("id, job_number, status, customer_complaint, dropped_off_at, repair_completed_at, picked_up_at, customer_id, vehicle_id, package_id, custom_package_amount")
-      .eq("workshop_id", workshopId)
-      .order("dropped_off_at", { ascending: false }).limit(1000);
-    if (error) throw new Error(error.message);
-    const rows = jobs ?? [];
-    const customerIds = [...new Set(rows.map(r => r.customer_id).filter(Boolean))] as string[];
-    const vehicleIds = [...new Set(rows.map(r => r.vehicle_id).filter(Boolean))] as string[];
-    const packageIds = [...new Set(rows.map(r => r.package_id).filter(Boolean))] as string[];
-    const jobIds = rows.map(r => r.id);
-    const [cRes, vRes, pRes, prRes] = await Promise.all([
-      customerIds.length ? supabaseAdmin.from("customers").select("id, name, phone").in("id", customerIds) : Promise.resolve({ data: [] } as const),
-      vehicleIds.length ? supabaseAdmin.from("vehicles").select("id, make, model, licence_plate").in("id", vehicleIds) : Promise.resolve({ data: [] } as const),
-      packageIds.length ? supabaseAdmin.from("service_packages").select("id, price").in("id", packageIds) : Promise.resolve({ data: [] } as const),
-      jobIds.length ? supabaseAdmin.from("job_card_parts").select("job_card_id, line_total, unit_price, quantity").in("job_card_id", jobIds) : Promise.resolve({ data: [] } as const),
-    ]);
-    const cust = new Map((cRes.data ?? []).map((c: any) => [c.id, c]));
-    const veh = new Map((vRes.data ?? []).map((v: any) => [v.id, v]));
-    const pkg = new Map((pRes.data ?? []).map((p: any) => [p.id, Number(p.price) || 0]));
-    const partsByJob = new Map<string, number>();
-    for (const p of (prRes.data ?? []) as any[]) {
-      const lt = Number(p.line_total ?? Number(p.unit_price) * Number(p.quantity)) || 0;
-      partsByJob.set(p.job_card_id, (partsByJob.get(p.job_card_id) ?? 0) + lt);
-    }
-    return rows.map((r) => {
-      const c = (r.customer_id && cust.get(r.customer_id)) as any;
-      const v = (r.vehicle_id && veh.get(r.vehicle_id)) as any;
-      const pkgAmt = r.package_id ? (pkg.get(r.package_id) ?? 0) : Number(r.custom_package_amount) || 0;
-      return {
-        job_number: r.job_number,
-        status: r.status ?? "",
-        customer_name: c?.name ?? "",
-        customer_phone: c?.phone ?? "",
-        vehicle: v ? `${v.make ?? ""} ${v.model ?? ""} ${v.licence_plate ?? ""}`.trim() : "",
-        complaint: (r.customer_complaint ?? "").replace(/\s+/g, " "),
-        dropped_off_at: r.dropped_off_at,
-        repair_completed_at: r.repair_completed_at,
-        picked_up_at: r.picked_up_at,
-        total_amount: pkgAmt + (partsByJob.get(r.id) ?? 0),
-      };
-    });
-  },
-);
+export const exportAllJobs = createServerFn({ method: "GET" }).handler(async (): Promise<ExportRowDTO[]> => {
+  const user = await requireSessionUser();
+  requireAdmin(user);
+  const workshopId = user.workshop_id;
+  const { data: jobs, error } = await supabaseAdmin
+    .from("job_cards")
+    .select(
+      "id, job_number, status, customer_complaint, dropped_off_at, repair_completed_at, picked_up_at, customer_id, vehicle_id, package_id, custom_package_amount",
+    )
+    .eq("workshop_id", workshopId)
+    .order("dropped_off_at", { ascending: false })
+    .limit(1000);
+  if (error) throw new Error(error.message);
+  const rows = jobs ?? [];
+  const customerIds = [...new Set(rows.map((r) => r.customer_id).filter(Boolean))] as string[];
+  const vehicleIds = [...new Set(rows.map((r) => r.vehicle_id).filter(Boolean))] as string[];
+  const packageIds = [...new Set(rows.map((r) => r.package_id).filter(Boolean))] as string[];
+  const jobIds = rows.map((r) => r.id);
+  const [cRes, vRes, pRes, prRes] = await Promise.all([
+    customerIds.length
+      ? supabaseAdmin.from("customers").select("id, name, phone").in("id", customerIds)
+      : Promise.resolve({ data: [] } as const),
+    vehicleIds.length
+      ? supabaseAdmin.from("vehicles").select("id, make, model, licence_plate").in("id", vehicleIds)
+      : Promise.resolve({ data: [] } as const),
+    packageIds.length
+      ? supabaseAdmin.from("service_packages").select("id, price").in("id", packageIds)
+      : Promise.resolve({ data: [] } as const),
+    jobIds.length
+      ? supabaseAdmin
+          .from("job_card_parts")
+          .select("job_card_id, line_total, unit_price, quantity")
+          .in("job_card_id", jobIds)
+      : Promise.resolve({ data: [] } as const),
+  ]);
+  const cust = new Map((cRes.data ?? []).map((c: any) => [c.id, c]));
+  const veh = new Map((vRes.data ?? []).map((v: any) => [v.id, v]));
+  const pkg = new Map((pRes.data ?? []).map((p: any) => [p.id, Number(p.price) || 0]));
+  const partsByJob = new Map<string, number>();
+  for (const p of (prRes.data ?? []) as any[]) {
+    const lt = Number(p.line_total ?? Number(p.unit_price) * Number(p.quantity)) || 0;
+    partsByJob.set(p.job_card_id, (partsByJob.get(p.job_card_id) ?? 0) + lt);
+  }
+  return rows.map((r) => {
+    const c = (r.customer_id && cust.get(r.customer_id)) as any;
+    const v = (r.vehicle_id && veh.get(r.vehicle_id)) as any;
+    const pkgAmt = r.package_id ? (pkg.get(r.package_id) ?? 0) : Number(r.custom_package_amount) || 0;
+    return {
+      job_number: r.job_number,
+      status: r.status ?? "",
+      customer_name: c?.name ?? "",
+      customer_phone: c?.phone ?? "",
+      vehicle: v ? `${v.make ?? ""} ${v.model ?? ""} ${v.licence_plate ?? ""}`.trim() : "",
+      complaint: (r.customer_complaint ?? "").replace(/\s+/g, " "),
+      dropped_off_at: r.dropped_off_at,
+      repair_completed_at: r.repair_completed_at,
+      picked_up_at: r.picked_up_at,
+      total_amount: pkgAmt + (partsByJob.get(r.id) ?? 0),
+    };
+  });
+});
 
 // --- Public (any signed-in kiosk user): list packages for the New Job flow ---
-export const listPackagesForJob = createServerFn({ method: "GET" }).handler(
-  async (): Promise<ServicePackageDTO[]> => {
-    const user = await requireSessionUser();
-    const { data, error } = await supabaseAdmin
-      .from("service_packages")
-      .select("id, name, price, subtitle, sort_order, is_custom")
-      .eq("workshop_id", user.workshop_id)
-      .order("sort_order", { ascending: true });
-    if (error) throw new Error("Failed to load packages");
-    return (data ?? []).map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      price: Number(p.price) || 0,
-      subtitle: p.subtitle,
-      sort_order: Number(p.sort_order) || 0,
-      is_custom: !!p.is_custom,
-    }));
-  },
-);
+export const listPackagesForJob = createServerFn({ method: "GET" }).handler(async (): Promise<ServicePackageDTO[]> => {
+  const user = await requireSessionUser();
+  const { data, error } = await supabaseAdmin
+    .from("service_packages")
+    .select("id, name, price, subtitle, sort_order, is_custom")
+    .eq("workshop_id", user.workshop_id)
+    .order("sort_order", { ascending: true });
+  if (error) throw new Error("Failed to load packages");
+  return (data ?? []).map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    price: Number(p.price) || 0,
+    subtitle: p.subtitle,
+    sort_order: Number(p.sort_order) || 0,
+    is_custom: !!p.is_custom,
+  }));
+});
 
 export type PartsLibraryItem = {
   id: string;
@@ -1339,19 +1393,17 @@ export type PartsLibraryItem = {
   default_unit: string;
 };
 
-export const listPartsLibrary = createServerFn({ method: "GET" }).handler(
-  async (): Promise<PartsLibraryItem[]> => {
-    const user = await requireSessionUser();
-    const { data, error } = await supabaseAdmin
-      .from("parts_library")
-      .select("id, name, default_unit, sort_order")
-      .eq("workshop_id", user.workshop_id)
-      .order("sort_order", { ascending: true });
-    if (error) throw new Error("Failed to load parts");
-    return (data ?? []).map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      default_unit: p.default_unit ?? "pcs",
-    }));
-  },
-);
+export const listPartsLibrary = createServerFn({ method: "GET" }).handler(async (): Promise<PartsLibraryItem[]> => {
+  const user = await requireSessionUser();
+  const { data, error } = await supabaseAdmin
+    .from("parts_library")
+    .select("id, name, default_unit, sort_order")
+    .eq("workshop_id", user.workshop_id)
+    .order("sort_order", { ascending: true });
+  if (error) throw new Error("Failed to load parts");
+  return (data ?? []).map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    default_unit: p.default_unit ?? "pcs",
+  }));
+});
