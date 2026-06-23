@@ -1111,7 +1111,7 @@ function PackagesSection() {
   );
 }
 
-// ---------- Section 6: Parts ----------
+// ---------- Section 7: Parts ----------
 const UNITS = ["pcs", "litre", "ml", "set", "pair", "metre"] as const;
 
 function PartsSection() {
@@ -1264,7 +1264,7 @@ function PartsSection() {
   );
 }
 
-// ---------- Section 7: Data ----------
+// ---------- Section 8: Data ----------
 function DataSection() {
   const navigate = useNavigate();
   const search = useServerFn(searchClosedJobs);
@@ -1407,7 +1407,7 @@ function DataSection() {
   );
 }
 
-// ---------- Section 8: Coming Soon ----------
+// ---------- Section 9: Coming Soon ----------
 function ComingSoonSection() {
   const items = [
     "Add Another Workshop Location",
