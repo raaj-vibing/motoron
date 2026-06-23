@@ -228,7 +228,6 @@ function JobDetailPage() {
     );
   }
 
-  const showClose = job.status === "repair_completed";
   const bothNotifSent =
     job.dropoff_notification_sent &&
     (job.status === "repair_completed" || job.status === "closed"
