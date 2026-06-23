@@ -536,7 +536,7 @@ export const getJobDetail = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error || !job) throw new Error("Job not found");
 
-    const [custRes, vehRes, pkgRes, partsRes, priorRes, wsRes] = await Promise.all([
+    const [custRes, vehRes, pkgRes, partsRes, priorRes, wsRes, mechRes] = await Promise.all([
       job.customer_id
         ? supabaseAdmin.from("customers").select("id, name, phone, address").eq("id", job.customer_id).maybeSingle()
         : Promise.resolve({ data: null, error: null } as const),
@@ -566,6 +566,13 @@ export const getJobDetail = createServerFn({ method: "POST" })
             .limit(5)
         : Promise.resolve({ data: [], error: null } as const),
       supabaseAdmin.from("workshops").select("id, name, phone, maps_link, hours").eq("id", workshopId).maybeSingle(),
+      (job as any).assigned_mechanic_id
+        ? supabaseAdmin
+            .from("mechanics")
+            .select("id, name")
+            .eq("id", (job as any).assigned_mechanic_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null } as const),
     ]);
 
     const parts: JobDetailPart[] = ((partsRes.data ?? []) as any[]).map((p) => ({
