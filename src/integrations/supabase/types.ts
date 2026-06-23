@@ -92,6 +92,7 @@ export type Database = {
       }
       job_cards: {
         Row: {
+          assigned_mechanic_id: string | null
           completed_notification_sent: boolean | null
           created_at: string | null
           created_by: string | null
@@ -114,6 +115,7 @@ export type Database = {
           workshop_id: string | null
         }
         Insert: {
+          assigned_mechanic_id?: string | null
           completed_notification_sent?: boolean | null
           created_at?: string | null
           created_by?: string | null
@@ -136,6 +138,7 @@ export type Database = {
           workshop_id?: string | null
         }
         Update: {
+          assigned_mechanic_id?: string | null
           completed_notification_sent?: boolean | null
           created_at?: string | null
           created_by?: string | null
@@ -158,6 +161,13 @@ export type Database = {
           workshop_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "job_cards_assigned_mechanic_id_fkey"
+            columns: ["assigned_mechanic_id"]
+            isOneToOne: false
+            referencedRelation: "mechanics"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "job_cards_created_by_fkey"
             columns: ["created_by"]
