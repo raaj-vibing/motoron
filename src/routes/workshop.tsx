@@ -21,12 +21,17 @@ import {
   createPart,
   updatePart,
   deletePart,
+  listMechanics,
+  createMechanic,
+  updateMechanic,
+  deleteMechanic,
   searchClosedJobs,
   exportAllJobs,
   type WorkshopProfileDTO,
   type TeamMemberDTO,
   type ServicePackageDTO,
   type PartDTO,
+  type MechanicDTO,
   type ClosedJobDTO,
 } from "@/lib/kiosk.functions";
 
