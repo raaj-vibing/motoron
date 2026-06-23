@@ -1465,7 +1465,7 @@ export const updateMechanic = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireSessionUser();
     requireAdmin(user);
-    const updates: Record<string, unknown> = {};
+    const updates: { name?: string; is_active?: boolean } = {};
     if (data.name !== undefined) updates.name = data.name;
     if (data.is_active !== undefined) updates.is_active = data.is_active;
     const { error } = await supabaseAdmin
