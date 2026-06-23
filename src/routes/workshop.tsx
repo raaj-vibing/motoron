@@ -92,6 +92,9 @@ function WorkshopAdmin() {
         <Section title="Team & Ownership" k="team" open={open} onToggle={toggle}>
           <TeamSection />
         </Section>
+        <Section title="Mechanics" k="mechanics" open={open} onToggle={toggle}>
+          <MechanicsSection />
+        </Section>
         <Section title="Service Packages" k="packages" open={open} onToggle={toggle}>
           <PackagesSection />
         </Section>
