@@ -2,10 +2,7 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { toast } from "sonner";
-import {
-  ArrowLeft, ChevronDown, Copy, Trash2, Pencil, Plus,
-  ArrowUp, ArrowDown, Lock, Check,
-} from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, Trash2, Pencil, Plus, ArrowUp, ArrowDown, Lock, Check } from "lucide-react";
 import {
   getCurrentKioskUser,
   updateMyAccount,
@@ -47,8 +44,15 @@ export const Route = createFileRoute("/workshop")({
 });
 
 type SectionKey =
-  | "account" | "profile" | "notifications" | "team"
-  | "packages" | "parts" | "data" | "soon";
+  | "account"
+  | "profile"
+  | "notifications"
+  | "team"
+  | "mechanics"
+  | "packages"
+  | "parts"
+  | "data"
+  | "soon";
 
 function WorkshopAdmin() {
   const navigate = useNavigate();
@@ -101,7 +105,11 @@ function WorkshopAdmin() {
 }
 
 function Section({
-  title, k, open, onToggle, children,
+  title,
+  k,
+  open,
+  onToggle,
+  children,
 }: {
   title: string;
   k: SectionKey;
@@ -118,9 +126,7 @@ function Section({
         className="w-full flex items-center gap-3 p-4 text-left border-l-4 border-l-primary"
       >
         <span className="flex-1 font-body font-bold text-[15px] text-foreground">{title}</span>
-        <ChevronDown
-          className={`w-5 h-5 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`}
-        />
+        <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`} />
       </button>
       {isOpen && <div className="p-4 pt-0">{children}</div>}
     </div>
@@ -163,24 +169,34 @@ function AccountSection() {
   const onSave = async () => {
     if (newPin || confirmPin || curPin) {
       if (!/^\d{4}$/.test(newPin) || !/^\d{4}$/.test(confirmPin) || !/^\d{4}$/.test(curPin)) {
-        toast.error("PINs must be 4 digits"); return;
+        toast.error("PINs must be 4 digits");
+        return;
       }
-      if (newPin !== confirmPin) { toast.error("New PIN and confirm don't match"); return; }
+      if (newPin !== confirmPin) {
+        toast.error("New PIN and confirm don't match");
+        return;
+      }
     }
     setBusy(true);
     try {
       await save({
         data: {
-          name, email, phone,
+          name,
+          email,
+          phone,
           currentPin: curPin || undefined,
           newPin: newPin || undefined,
         },
       });
-      setCurPin(""); setNewPin(""); setConfirmPin("");
+      setCurPin("");
+      setNewPin("");
+      setConfirmPin("");
       toast.success("Saved");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to save");
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -197,12 +213,30 @@ function AccountSection() {
       <div>
         <label className={labelCls}>Change PIN</label>
         <div className="grid grid-cols-3 gap-2">
-          <input className={inputCls} placeholder="Current" inputMode="numeric" maxLength={4} value={curPin}
-            onChange={(e) => setCurPin(e.target.value.replace(/\D/g, ""))} />
-          <input className={inputCls} placeholder="New" inputMode="numeric" maxLength={4} value={newPin}
-            onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))} />
-          <input className={inputCls} placeholder="Confirm" inputMode="numeric" maxLength={4} value={confirmPin}
-            onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))} />
+          <input
+            className={inputCls}
+            placeholder="Current"
+            inputMode="numeric"
+            maxLength={4}
+            value={curPin}
+            onChange={(e) => setCurPin(e.target.value.replace(/\D/g, ""))}
+          />
+          <input
+            className={inputCls}
+            placeholder="New"
+            inputMode="numeric"
+            maxLength={4}
+            value={newPin}
+            onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+          />
+          <input
+            className={inputCls}
+            placeholder="Confirm"
+            inputMode="numeric"
+            maxLength={4}
+            value={confirmPin}
+            onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
+          />
         </div>
       </div>
       <button className={btnPrimary} disabled={busy} onClick={onSave}>
@@ -214,8 +248,12 @@ function AccountSection() {
 
 // ---------- Section 2: Profile ----------
 const DAYS: { k: string; label: string }[] = [
-  { k: "mon", label: "Mon" }, { k: "tue", label: "Tue" }, { k: "wed", label: "Wed" },
-  { k: "thu", label: "Thu" }, { k: "fri", label: "Fri" }, { k: "sat", label: "Sat" },
+  { k: "mon", label: "Mon" },
+  { k: "tue", label: "Tue" },
+  { k: "wed", label: "Wed" },
+  { k: "thu", label: "Thu" },
+  { k: "fri", label: "Fri" },
+  { k: "sat", label: "Sat" },
   { k: "sun", label: "Sun" },
 ];
 
@@ -225,36 +263,53 @@ function ProfileSection() {
   const [p, setP] = useState<WorkshopProfileDTO | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { fetch().then(setP).catch(() => toast.error("Failed to load profile")); }, [fetch]);
+  useEffect(() => {
+    fetch()
+      .then(setP)
+      .catch(() => toast.error("Failed to load profile"));
+  }, [fetch]);
 
   if (!p) return <p className="text-muted-foreground text-sm">Loading…</p>;
 
   const setField = <K extends keyof WorkshopProfileDTO>(k: K, v: WorkshopProfileDTO[K]) =>
-    setP((prev) => prev ? { ...prev, [k]: v } : prev);
+    setP((prev) => (prev ? { ...prev, [k]: v } : prev));
 
   const onLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    if (file.size > 1_500_000) { toast.error("Logo must be under 1.5 MB"); return; }
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 1_500_000) {
+      toast.error("Logo must be under 1.5 MB");
+      return;
+    }
     const r = new FileReader();
     r.onload = () => setField("logo", String(r.result));
     r.readAsDataURL(file);
   };
 
   const setDay = (k: string, patch: Partial<{ open: string; close: string; closed: boolean }>) => {
-    setP((prev) => prev ? { ...prev, hours: { ...prev.hours, [k]: { ...prev.hours?.[k], ...patch } } } : prev);
+    setP((prev) => (prev ? { ...prev, hours: { ...prev.hours, [k]: { ...prev.hours?.[k], ...patch } } } : prev));
   };
 
   const onSave = async () => {
     setBusy(true);
     try {
-      await save({ data: {
-        name: p.name, phone: p.phone ?? "", address: p.address ?? "",
-        maps_link: p.maps_link ?? "", logo: p.logo ?? "",
-        hours: p.hours ?? {}, gst_number: p.gst_number ?? "",
-      }});
+      await save({
+        data: {
+          name: p.name,
+          phone: p.phone ?? "",
+          address: p.address ?? "",
+          maps_link: p.maps_link ?? "",
+          logo: p.logo ?? "",
+          hours: p.hours ?? {},
+          gst_number: p.gst_number ?? "",
+        },
+      });
       toast.success("Saved");
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed to save"); }
-    finally { setBusy(false); }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -263,14 +318,28 @@ function ProfileSection() {
         <input className={inputCls} value={p.name} onChange={(e) => setField("name", e.target.value)} />
       </Field>
       <Field label="Workshop phone">
-        <input type="tel" className={inputCls} value={p.phone ?? ""} onChange={(e) => setField("phone", e.target.value)} />
+        <input
+          type="tel"
+          className={inputCls}
+          value={p.phone ?? ""}
+          onChange={(e) => setField("phone", e.target.value)}
+        />
       </Field>
       <Field label="Address">
-        <textarea rows={3} className={textareaCls} value={p.address ?? ""} onChange={(e) => setField("address", e.target.value)} />
+        <textarea
+          rows={3}
+          className={textareaCls}
+          value={p.address ?? ""}
+          onChange={(e) => setField("address", e.target.value)}
+        />
       </Field>
       <Field label="Google Maps link">
-        <input className={inputCls} placeholder="Paste your Google Maps share link"
-          value={p.maps_link ?? ""} onChange={(e) => setField("maps_link", e.target.value)} />
+        <input
+          className={inputCls}
+          placeholder="Paste your Google Maps share link"
+          value={p.maps_link ?? ""}
+          onChange={(e) => setField("maps_link", e.target.value)}
+        />
       </Field>
       <Field label="Logo">
         <div className="flex items-center gap-3">
@@ -280,7 +349,9 @@ function ProfileSection() {
             <input type="file" accept="image/*" className="hidden" onChange={onLogoChange} />
           </label>
           {p.logo && (
-            <button type="button" onClick={() => setField("logo", null)} className="text-destructive text-sm">Remove</button>
+            <button type="button" onClick={() => setField("logo", null)} className="text-destructive text-sm">
+              Remove
+            </button>
           )}
         </div>
       </Field>
@@ -290,20 +361,34 @@ function ProfileSection() {
           {DAYS.map((d) => {
             const h = p.hours?.[d.k] ?? { open: "09:00", close: "19:00", closed: false };
             return (
-              <div key={d.k} className={`flex items-center gap-3 rounded-lg bg-background px-3 py-2 ${h.closed ? "opacity-50" : ""}`}>
+              <div
+                key={d.k}
+                className={`flex items-center gap-3 rounded-lg bg-background px-3 py-2 ${h.closed ? "opacity-50" : ""}`}
+              >
                 <span className="w-10 text-sm font-medium text-foreground">{d.label}</span>
                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <input type="checkbox" checked={!h.closed}
-                    onChange={(e) => setDay(d.k, { closed: !e.target.checked })} />
+                  <input
+                    type="checkbox"
+                    checked={!h.closed}
+                    onChange={(e) => setDay(d.k, { closed: !e.target.checked })}
+                  />
                   Open
                 </label>
                 {!h.closed && (
                   <div className="flex-1 flex items-center gap-2 justify-end">
-                    <input type="time" value={h.open} onChange={(e) => setDay(d.k, { open: e.target.value })}
-                      className="h-9 px-2 rounded bg-card border border-border text-foreground text-sm" />
+                    <input
+                      type="time"
+                      value={h.open}
+                      onChange={(e) => setDay(d.k, { open: e.target.value })}
+                      className="h-9 px-2 rounded bg-card border border-border text-foreground text-sm"
+                    />
                     <span className="text-muted-foreground text-xs">–</span>
-                    <input type="time" value={h.close} onChange={(e) => setDay(d.k, { close: e.target.value })}
-                      className="h-9 px-2 rounded bg-card border border-border text-foreground text-sm" />
+                    <input
+                      type="time"
+                      value={h.close}
+                      onChange={(e) => setDay(d.k, { close: e.target.value })}
+                      className="h-9 px-2 rounded bg-card border border-border text-foreground text-sm"
+                    />
                   </div>
                 )}
               </div>
@@ -313,8 +398,12 @@ function ProfileSection() {
       </Field>
 
       <Field label="GST number (optional)">
-        <input className={inputCls} placeholder="GST Number (optional)"
-          value={p.gst_number ?? ""} onChange={(e) => setField("gst_number", e.target.value)} />
+        <input
+          className={inputCls}
+          placeholder="GST Number (optional)"
+          value={p.gst_number ?? ""}
+          onChange={(e) => setField("gst_number", e.target.value)}
+        />
       </Field>
 
       <button className={btnPrimary} disabled={busy} onClick={onSave}>
@@ -331,57 +420,85 @@ function NotificationsSection() {
   const [p, setP] = useState<WorkshopProfileDTO | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { fetch().then(setP).catch(() => toast.error("Failed to load")); }, [fetch]);
+  useEffect(() => {
+    fetch()
+      .then(setP)
+      .catch(() => toast.error("Failed to load"));
+  }, [fetch]);
 
   if (!p) return <p className="text-muted-foreground text-sm">Loading…</p>;
 
   const setF = <K extends keyof WorkshopProfileDTO>(k: K, v: WorkshopProfileDTO[K]) =>
-    setP((prev) => prev ? { ...prev, [k]: v } : prev);
+    setP((prev) => (prev ? { ...prev, [k]: v } : prev));
 
   const onSave = async () => {
     setBusy(true);
     try {
-      await save({ data: {
-        job_duration_threshold: p.job_duration_threshold || 3,
-        notify_dropoff: p.notify_dropoff,
-        notify_completed: p.notify_completed,
-        dropoff_template: p.dropoff_template ?? "",
-        completed_template: p.completed_template ?? "",
-      }});
+      await save({
+        data: {
+          job_duration_threshold: p.job_duration_threshold || 3,
+          notify_dropoff: p.notify_dropoff,
+          notify_completed: p.notify_completed,
+          dropoff_template: p.dropoff_template ?? "",
+          completed_template: p.completed_template ?? "",
+        },
+      });
       toast.success("Saved");
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed to save"); }
-    finally { setBusy(false); }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <div className="space-y-4">
       <Field label="Job duration threshold">
-        <input type="number" min={1} className={inputCls}
+        <input
+          type="number"
+          min={1}
+          className={inputCls}
           value={p.job_duration_threshold}
-          onChange={(e) => setF("job_duration_threshold", Number(e.target.value) || 0)} />
+          onChange={(e) => setF("job_duration_threshold", Number(e.target.value) || 0)}
+        />
         <p className="text-muted-foreground text-xs mt-1">
           Flag jobs overdue after X days. Jobs older than this show a red counter on Active Jobs screen.
         </p>
       </Field>
 
-      <Toggle label="Send drop-off WhatsApp notification" value={p.notify_dropoff}
-        onChange={(v) => setF("notify_dropoff", v)} />
-      <Toggle label="Send repair-completed WhatsApp notification" value={p.notify_completed}
-        onChange={(v) => setF("notify_completed", v)} />
+      <Toggle
+        label="Send drop-off WhatsApp notification"
+        value={p.notify_dropoff}
+        onChange={(v) => setF("notify_dropoff", v)}
+      />
+      <Toggle
+        label="Send repair-completed WhatsApp notification"
+        value={p.notify_completed}
+        onChange={(v) => setF("notify_completed", v)}
+      />
 
       <Field label="Drop-off message template">
-        <textarea rows={5} className={textareaCls} value={p.dropoff_template ?? ""}
-          onChange={(e) => setF("dropoff_template", e.target.value)} />
+        <textarea
+          rows={5}
+          className={textareaCls}
+          value={p.dropoff_template ?? ""}
+          onChange={(e) => setF("dropoff_template", e.target.value)}
+        />
         <p className="text-muted-foreground text-[11px] mt-1 font-mono">
           [CustomerName] [VehicleMake] [VehicleModel] [WorkshopName] [WorkshopPhone] [MapsLink] [WorkshopHours]
         </p>
       </Field>
 
       <Field label="Ready for pickup message template">
-        <textarea rows={5} className={textareaCls} value={p.completed_template ?? ""}
-          onChange={(e) => setF("completed_template", e.target.value)} />
+        <textarea
+          rows={5}
+          className={textareaCls}
+          value={p.completed_template ?? ""}
+          onChange={(e) => setF("completed_template", e.target.value)}
+        />
         <p className="text-muted-foreground text-[11px] mt-1 font-mono">
-          [CustomerName] [VehicleMake] [VehicleModel] [WorkshopName] [WorkshopPhone] [MapsLink] [WorkshopHours] [TotalAmount]
+          [CustomerName] [VehicleMake] [VehicleModel] [WorkshopName] [WorkshopPhone] [MapsLink] [WorkshopHours]
+          [TotalAmount]
         </p>
       </Field>
 
@@ -394,11 +511,16 @@ function NotificationsSection() {
 
 function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <button type="button" onClick={() => onChange(!value)}
-      className="w-full flex items-center justify-between p-3 rounded-lg bg-background border border-border">
+    <button
+      type="button"
+      onClick={() => onChange(!value)}
+      className="w-full flex items-center justify-between p-3 rounded-lg bg-background border border-border"
+    >
       <span className="text-sm text-foreground text-left">{label}</span>
       <span className={`relative w-11 h-6 rounded-full transition ${value ? "bg-primary" : "bg-muted-foreground/30"}`}>
-        <span className={`absolute top-0.5 ${value ? "right-0.5" : "left-0.5"} w-5 h-5 rounded-full bg-white transition-all`} />
+        <span
+          className={`absolute top-0.5 ${value ? "right-0.5" : "left-0.5"} w-5 h-5 rounded-full bg-white transition-all`}
+        />
       </span>
     </button>
   );
@@ -415,8 +537,16 @@ function TeamSection() {
   const [inviteText, setInviteText] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState(false);
 
-  const reload = useCallback(() => fetch().then(setTeam).catch(() => toast.error("Failed to load team")), [fetch]);
-  useEffect(() => { reload(); }, [reload]);
+  const reload = useCallback(
+    () =>
+      fetch()
+        .then(setTeam)
+        .catch(() => toast.error("Failed to load team")),
+    [fetch],
+  );
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   const copyId = () => {
     navigator.clipboard.writeText(WORKSHOP_ID);
@@ -443,7 +573,9 @@ function TeamSection() {
       setConfirmId(null);
       await reload();
       toast.success("Removed");
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
   };
 
   const confirmMember = team.find((m) => m.id === confirmId);
@@ -456,8 +588,19 @@ function TeamSection() {
           <code className="flex-1 text-sky-400 font-mono text-xs break-all bg-background px-3 py-2 rounded-lg border border-border">
             {WORKSHOP_ID}
           </code>
-          <button onClick={copyId} className="h-10 px-3 rounded-lg border border-border text-foreground flex items-center gap-1.5 text-xs">
-            {copiedId ? <><Check className="w-4 h-4 text-emerald-500" /> Copied</> : <><Copy className="w-4 h-4" /> Copy</>}
+          <button
+            onClick={copyId}
+            className="h-10 px-3 rounded-lg border border-border text-foreground flex items-center gap-1.5 text-xs"
+          >
+            {copiedId ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-500" /> Copied
+              </>
+            ) : (
+              <>
+                <Copy className="w-4 h-4" /> Copy
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -484,19 +627,32 @@ function TeamSection() {
 
       <div className="pt-2 border-t border-border space-y-3">
         <span className={labelCls}>Add co-owner</span>
-        <input className={inputCls} placeholder="Phone number" type="tel" value={invitePhone}
-          onChange={(e) => setInvitePhone(e.target.value)} />
+        <input
+          className={inputCls}
+          placeholder="Phone number"
+          type="tel"
+          value={invitePhone}
+          onChange={(e) => setInvitePhone(e.target.value)}
+        />
         <div className="grid grid-cols-2 gap-2">
           {(["full-admin", "view-only"] as const).map((lvl) => (
-            <button key={lvl} type="button" onClick={() => setInviteLevel(lvl)}
+            <button
+              key={lvl}
+              type="button"
+              onClick={() => setInviteLevel(lvl)}
               className={`h-11 rounded-lg border-2 text-sm font-medium transition ${
-                inviteLevel === lvl ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
-              }`}>
+                inviteLevel === lvl
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground"
+              }`}
+            >
               {lvl === "full-admin" ? "Full Admin" : "View Only"}
             </button>
           ))}
         </div>
-        <button onClick={generateInvite} className={btnPrimary}>Generate Invite</button>
+        <button onClick={generateInvite} className={btnPrimary}>
+          Generate Invite
+        </button>
         {inviteText && (
           <div className="rounded-lg bg-background border border-border p-3 space-y-2">
             <p className="text-sm text-foreground whitespace-pre-wrap">{inviteText}</p>
@@ -520,7 +676,13 @@ function TeamSection() {
   );
 }
 
-function Pill({ color, children }: { color: "orange" | "blue" | "green" | "grey" | "amber"; children: React.ReactNode }) {
+function Pill({
+  color,
+  children,
+}: {
+  color: "orange" | "blue" | "green" | "grey" | "amber";
+  children: React.ReactNode;
+}) {
   const map: Record<string, string> = {
     orange: "bg-primary/20 text-primary",
     blue: "bg-sky-500/20 text-sky-400",
@@ -532,16 +694,30 @@ function Pill({ color, children }: { color: "orange" | "blue" | "green" | "grey"
 }
 
 function ConfirmModal({
-  title, body, confirmLabel, onCancel, onConfirm,
-}: { title: string; body: string; confirmLabel: string; onCancel: () => void; onConfirm: () => void; }) {
+  title,
+  body,
+  confirmLabel,
+  onCancel,
+  onConfirm,
+}: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4">
       <div className="w-full max-w-sm rounded-xl bg-card border border-border p-5 space-y-3">
         <h3 className="font-display text-xl text-foreground">{title}</h3>
         <p className="text-sm text-muted-foreground">{body}</p>
         <div className="grid grid-cols-2 gap-2 pt-2">
-          <button onClick={onCancel} className="h-11 rounded-lg border border-border text-foreground">Cancel</button>
-          <button onClick={onConfirm} className="h-11 rounded-lg bg-destructive text-destructive-foreground font-bold">{confirmLabel}</button>
+          <button onClick={onCancel} className="h-11 rounded-lg border border-border text-foreground">
+            Cancel
+          </button>
+          <button onClick={onConfirm} className="h-11 rounded-lg bg-destructive text-destructive-foreground font-bold">
+            {confirmLabel}
+          </button>
         </div>
       </div>
     </div>
@@ -562,8 +738,16 @@ function PackagesSection() {
   const [newPkg, setNewPkg] = useState({ name: "", price: "", subtitle: "" });
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
-  const reload = useCallback(() => fetch().then(setItems).catch(() => toast.error("Failed to load")), [fetch]);
-  useEffect(() => { reload(); }, [reload]);
+  const reload = useCallback(
+    () =>
+      fetch()
+        .then(setItems)
+        .catch(() => toast.error("Failed to load")),
+    [fetch],
+  );
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   const startEdit = (p: ServicePackageDTO) => {
     setEditingId(p.id);
@@ -573,11 +757,15 @@ function PackagesSection() {
   const saveEdit = async () => {
     if (!editingId) return;
     try {
-      await upd({ data: { id: editingId, name: draft.name, price: Number(draft.price) || 0, subtitle: draft.subtitle } });
+      await upd({
+        data: { id: editingId, name: draft.name, price: Number(draft.price) || 0, subtitle: draft.subtitle },
+      });
       setEditingId(null);
       await reload();
       toast.success("Saved");
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
   };
 
   const addNew = async () => {
@@ -588,7 +776,9 @@ function PackagesSection() {
       setShowAdd(false);
       await reload();
       toast.success("Added");
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
   };
 
   const onDelete = async (id: string) => {
@@ -597,12 +787,18 @@ function PackagesSection() {
       setConfirmId(null);
       await reload();
       toast.success("Deleted");
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
   };
 
   const move = async (id: string, dir: "up" | "down") => {
-    try { await reorder({ data: { id, direction: dir } }); await reload(); }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    try {
+      await reorder({ data: { id, direction: dir } });
+      await reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
   };
 
   const confirmPkg = items.find((p) => p.id === confirmId);
@@ -613,19 +809,54 @@ function PackagesSection() {
         <div key={p.id} className="rounded-lg bg-background border border-border">
           {editingId === p.id ? (
             <div className="p-3 space-y-2">
-              <input className={inputCls} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Name" />
-              <input className={inputCls} type="number" value={draft.price} onChange={(e) => setDraft({ ...draft, price: e.target.value })} placeholder="Price" />
-              <input className={inputCls} value={draft.subtitle} onChange={(e) => setDraft({ ...draft, subtitle: e.target.value })} placeholder="Subtitle" />
+              <input
+                className={inputCls}
+                value={draft.name}
+                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                placeholder="Name"
+              />
+              <input
+                className={inputCls}
+                type="number"
+                value={draft.price}
+                onChange={(e) => setDraft({ ...draft, price: e.target.value })}
+                placeholder="Price"
+              />
+              <input
+                className={inputCls}
+                value={draft.subtitle}
+                onChange={(e) => setDraft({ ...draft, subtitle: e.target.value })}
+                placeholder="Subtitle"
+              />
               <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => setEditingId(null)} className="h-10 rounded-lg border border-border text-foreground text-sm">Cancel</button>
-                <button onClick={saveEdit} className="h-10 rounded-lg bg-primary text-white font-bold text-sm">Save</button>
+                <button
+                  onClick={() => setEditingId(null)}
+                  className="h-10 rounded-lg border border-border text-foreground text-sm"
+                >
+                  Cancel
+                </button>
+                <button onClick={saveEdit} className="h-10 rounded-lg bg-primary text-white font-bold text-sm">
+                  Save
+                </button>
               </div>
             </div>
           ) : (
             <div className="flex items-center gap-2 p-3">
               <div className="flex flex-col gap-0.5">
-                <button onClick={() => move(p.id, "up")} disabled={idx === 0} className="text-muted-foreground disabled:opacity-30"><ArrowUp className="w-3 h-3" /></button>
-                <button onClick={() => move(p.id, "down")} disabled={idx === items.length - 1} className="text-muted-foreground disabled:opacity-30"><ArrowDown className="w-3 h-3" /></button>
+                <button
+                  onClick={() => move(p.id, "up")}
+                  disabled={idx === 0}
+                  className="text-muted-foreground disabled:opacity-30"
+                >
+                  <ArrowUp className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={() => move(p.id, "down")}
+                  disabled={idx === items.length - 1}
+                  className="text-muted-foreground disabled:opacity-30"
+                >
+                  <ArrowDown className="w-3 h-3" />
+                </button>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2">
@@ -634,8 +865,12 @@ function PackagesSection() {
                 </div>
                 {p.subtitle && <p className="text-muted-foreground text-xs truncate">{p.subtitle}</p>}
               </div>
-              <button onClick={() => startEdit(p)} className="p-2 text-muted-foreground"><Pencil className="w-4 h-4" /></button>
-              <button onClick={() => setConfirmId(p.id)} className="p-2 text-destructive"><Trash2 className="w-4 h-4" /></button>
+              <button onClick={() => startEdit(p)} className="p-2 text-muted-foreground">
+                <Pencil className="w-4 h-4" />
+              </button>
+              <button onClick={() => setConfirmId(p.id)} className="p-2 text-destructive">
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
           )}
         </div>
@@ -643,23 +878,54 @@ function PackagesSection() {
 
       {showAdd ? (
         <div className="rounded-lg bg-background border border-dashed border-primary p-3 space-y-2">
-          <input className={inputCls} placeholder="Name" value={newPkg.name} onChange={(e) => setNewPkg({ ...newPkg, name: e.target.value })} />
-          <input className={inputCls} type="number" placeholder="Price" value={newPkg.price} onChange={(e) => setNewPkg({ ...newPkg, price: e.target.value })} />
-          <input className={inputCls} placeholder="Subtitle" value={newPkg.subtitle} onChange={(e) => setNewPkg({ ...newPkg, subtitle: e.target.value })} />
+          <input
+            className={inputCls}
+            placeholder="Name"
+            value={newPkg.name}
+            onChange={(e) => setNewPkg({ ...newPkg, name: e.target.value })}
+          />
+          <input
+            className={inputCls}
+            type="number"
+            placeholder="Price"
+            value={newPkg.price}
+            onChange={(e) => setNewPkg({ ...newPkg, price: e.target.value })}
+          />
+          <input
+            className={inputCls}
+            placeholder="Subtitle"
+            value={newPkg.subtitle}
+            onChange={(e) => setNewPkg({ ...newPkg, subtitle: e.target.value })}
+          />
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => setShowAdd(false)} className="h-10 rounded-lg border border-border text-foreground text-sm">Cancel</button>
-            <button onClick={addNew} className="h-10 rounded-lg bg-primary text-white font-bold text-sm">Add</button>
+            <button
+              onClick={() => setShowAdd(false)}
+              className="h-10 rounded-lg border border-border text-foreground text-sm"
+            >
+              Cancel
+            </button>
+            <button onClick={addNew} className="h-10 rounded-lg bg-primary text-white font-bold text-sm">
+              Add
+            </button>
           </div>
         </div>
       ) : (
-        <button onClick={() => setShowAdd(true)} className="w-full h-12 rounded-lg border-2 border-dashed border-primary text-primary font-bold text-sm flex items-center justify-center gap-2">
+        <button
+          onClick={() => setShowAdd(true)}
+          className="w-full h-12 rounded-lg border-2 border-dashed border-primary text-primary font-bold text-sm flex items-center justify-center gap-2"
+        >
           <Plus className="w-4 h-4" /> Add Package
         </button>
       )}
 
       {confirmPkg && (
-        <ConfirmModal title={`Delete ${confirmPkg.name}?`} body="This cannot be undone." confirmLabel="Delete"
-          onCancel={() => setConfirmId(null)} onConfirm={() => onDelete(confirmPkg.id)} />
+        <ConfirmModal
+          title={`Delete ${confirmPkg.name}?`}
+          body="This cannot be undone."
+          confirmLabel="Delete"
+          onCancel={() => setConfirmId(null)}
+          onConfirm={() => onDelete(confirmPkg.id)}
+        />
       )}
     </div>
   );
@@ -678,33 +944,55 @@ function PartsSection() {
   const [editName, setEditName] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
-  const [newUnit, setNewUnit] = useState<typeof UNITS[number]>("pcs");
+  const [newUnit, setNewUnit] = useState<(typeof UNITS)[number]>("pcs");
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
-  const reload = useCallback(() => fetch().then(setItems).catch(() => toast.error("Failed to load")), [fetch]);
-  useEffect(() => { reload(); }, [reload]);
+  const reload = useCallback(
+    () =>
+      fetch()
+        .then(setItems)
+        .catch(() => toast.error("Failed to load")),
+    [fetch],
+  );
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   const saveEdit = async () => {
-    if (!editingId || !editName.trim()) { setEditingId(null); return; }
+    if (!editingId || !editName.trim()) {
+      setEditingId(null);
+      return;
+    }
     try {
       await upd({ data: { id: editingId, name: editName } });
       setEditingId(null);
       await reload();
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
   };
 
   const addNew = async () => {
     if (!newName.trim()) return;
     try {
       await create({ data: { name: newName, default_unit: newUnit } });
-      setNewName(""); setNewUnit("pcs"); setShowAdd(false);
+      setNewName("");
+      setNewUnit("pcs");
+      setShowAdd(false);
       await reload();
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
   };
 
   const onDelete = async (id: string) => {
-    try { await del({ data: { id } }); setConfirmId(null); await reload(); }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    try {
+      await del({ data: { id } });
+      setConfirmId(null);
+      await reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
   };
 
   const confirmPart = items.find((p) => p.id === confirmId);
@@ -716,40 +1004,81 @@ function PartsSection() {
       {items.map((part) => (
         <div key={part.id} className="flex items-center gap-2 p-3 rounded-lg bg-background border border-border">
           {editingId === part.id ? (
-            <input autoFocus className={inputCls} value={editName}
+            <input
+              autoFocus
+              className={inputCls}
+              value={editName}
               onChange={(e) => setEditName(e.target.value)}
               onBlur={saveEdit}
-              onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditingId(null); }} />
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveEdit();
+                if (e.key === "Escape") setEditingId(null);
+              }}
+            />
           ) : (
-            <button onClick={() => { setEditingId(part.id); setEditName(part.name); }} className="flex-1 text-left text-foreground text-sm">
+            <button
+              onClick={() => {
+                setEditingId(part.id);
+                setEditName(part.name);
+              }}
+              className="flex-1 text-left text-foreground text-sm"
+            >
               {part.name}
             </button>
           )}
-          <span className="px-2 py-0.5 rounded-full text-[10px] uppercase bg-muted-foreground/20 text-muted-foreground">{part.default_unit}</span>
-          <button onClick={() => setConfirmId(part.id)} className="p-2 text-destructive"><Trash2 className="w-4 h-4" /></button>
+          <span className="px-2 py-0.5 rounded-full text-[10px] uppercase bg-muted-foreground/20 text-muted-foreground">
+            {part.default_unit}
+          </span>
+          <button onClick={() => setConfirmId(part.id)} className="p-2 text-destructive">
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       ))}
 
       {showAdd ? (
         <div className="rounded-lg bg-background border border-dashed border-primary p-3 space-y-2">
-          <input className={inputCls} placeholder="Part name" value={newName} onChange={(e) => setNewName(e.target.value)} />
+          <input
+            className={inputCls}
+            placeholder="Part name"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+          />
           <select className={inputCls} value={newUnit} onChange={(e) => setNewUnit(e.target.value as any)}>
-            {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+            {UNITS.map((u) => (
+              <option key={u} value={u}>
+                {u}
+              </option>
+            ))}
           </select>
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => setShowAdd(false)} className="h-10 rounded-lg border border-border text-foreground text-sm">Cancel</button>
-            <button onClick={addNew} className="h-10 rounded-lg bg-primary text-white font-bold text-sm">Add</button>
+            <button
+              onClick={() => setShowAdd(false)}
+              className="h-10 rounded-lg border border-border text-foreground text-sm"
+            >
+              Cancel
+            </button>
+            <button onClick={addNew} className="h-10 rounded-lg bg-primary text-white font-bold text-sm">
+              Add
+            </button>
           </div>
         </div>
       ) : (
-        <button onClick={() => setShowAdd(true)} className="w-full h-12 rounded-lg border-2 border-dashed border-primary text-primary font-bold text-sm flex items-center justify-center gap-2">
+        <button
+          onClick={() => setShowAdd(true)}
+          className="w-full h-12 rounded-lg border-2 border-dashed border-primary text-primary font-bold text-sm flex items-center justify-center gap-2"
+        >
           <Plus className="w-4 h-4" /> Add Part
         </button>
       )}
 
       {confirmPart && (
-        <ConfirmModal title={`Delete ${confirmPart.name}?`} body="This cannot be undone." confirmLabel="Delete"
-          onCancel={() => setConfirmId(null)} onConfirm={() => onDelete(confirmPart.id)} />
+        <ConfirmModal
+          title={`Delete ${confirmPart.name}?`}
+          body="This cannot be undone."
+          confirmLabel="Delete"
+          onCancel={() => setConfirmId(null)}
+          onConfirm={() => onDelete(confirmPart.id)}
+        />
       )}
     </div>
   );
@@ -770,39 +1099,61 @@ function DataSection() {
   const [savingMonths, setSavingMonths] = useState(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => { fetchProfile().then((p) => setMonths(p.auto_archive_months)).catch(() => {}); }, [fetchProfile]);
+  useEffect(() => {
+    fetchProfile()
+      .then((p) => setMonths(p.auto_archive_months))
+      .catch(() => {});
+  }, [fetchProfile]);
 
   useEffect(() => {
     if (debounce.current) clearTimeout(debounce.current);
     debounce.current = setTimeout(async () => {
       setLoading(true);
-      try { setResults(await search({ data: { q } })); }
-      catch { setResults([]); }
-      finally { setLoading(false); }
+      try {
+        setResults(await search({ data: { q } }));
+      } catch {
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
     }, 250);
-    return () => { if (debounce.current) clearTimeout(debounce.current); };
+    return () => {
+      if (debounce.current) clearTimeout(debounce.current);
+    };
   }, [q, search]);
 
   const doExport = async () => {
     try {
       const rows = await exportFn();
-      const headers = ["job_number","status","customer_name","customer_phone","vehicle","complaint","dropped_off_at","repair_completed_at","picked_up_at","total_amount"];
+      const headers = [
+        "job_number",
+        "status",
+        "customer_name",
+        "customer_phone",
+        "vehicle",
+        "complaint",
+        "dropped_off_at",
+        "repair_completed_at",
+        "picked_up_at",
+        "total_amount",
+      ];
       const escape = (s: any) => {
         const v = s == null ? "" : String(s);
         return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
       };
-      const csv = [
-        headers.join(","),
-        ...rows.map((r: any) => headers.map((h) => escape(r[h])).join(",")),
-      ].join("\n");
+      const csv = [headers.join(","), ...rows.map((r: any) => headers.map((h) => escape(r[h])).join(","))].join("\n");
       const blob = new Blob([csv], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       const today = new Date().toISOString().slice(0, 10);
-      a.href = url; a.download = `MotorON-export-${today}.csv`; a.click();
+      a.href = url;
+      a.download = `MotorON-export-${today}.csv`;
+      a.click();
       URL.revokeObjectURL(url);
       toast.success("Exported");
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
   };
 
   const saveMonths = async () => {
@@ -810,41 +1161,60 @@ function DataSection() {
     try {
       await saveArchive({ data: { months: months || 1 } });
       toast.success("Saved");
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
-    finally { setSavingMonths(false); }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setSavingMonths(false);
+    }
   };
 
   return (
     <div className="space-y-5">
       <div>
         <span className={labelCls}>Closed jobs archive</span>
-        <input className={inputCls} placeholder="Search by name, phone, vehicle or job number"
-          value={q} onChange={(e) => setQ(e.target.value)} />
+        <input
+          className={inputCls}
+          placeholder="Search by name, phone, vehicle or job number"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
         <div className="mt-2 space-y-2">
           {loading && <p className="text-muted-foreground text-sm">Searching…</p>}
           {!loading && results && results.length === 0 && (
             <p className="text-muted-foreground text-sm text-center py-4">No closed jobs yet</p>
           )}
           {results?.map((j) => (
-            <button key={j.id} onClick={() => navigate({ to: "/jobs/$jobId", params: { jobId: j.id } })}
-              className="w-full text-left p-3 rounded-lg bg-background border border-border opacity-80 hover:opacity-100 transition">
+            <button
+              key={j.id}
+              onClick={() => navigate({ to: "/jobs/$jobId", params: { jobId: j.id } })}
+              className="w-full text-left p-3 rounded-lg bg-background border border-border opacity-80 hover:opacity-100 transition"
+            >
               <div className="flex items-baseline justify-between gap-2">
                 <span className="font-mono text-sky-400 text-xs">#{j.job_number}</span>
                 <span className="text-foreground text-sm font-bold">₹{j.total_amount.toLocaleString("en-IN")}</span>
               </div>
               <div className="mt-1 text-sm text-foreground truncate">{j.customer_name}</div>
-              <div className="text-xs text-muted-foreground truncate">{j.vehicle_make} {j.vehicle_model}</div>
+              <div className="text-xs text-muted-foreground truncate">
+                {j.vehicle_make} {j.vehicle_model}
+              </div>
             </button>
           ))}
         </div>
       </div>
 
-      <button onClick={doExport} className={btnOutline}>Export All Data</button>
+      <button onClick={doExport} className={btnOutline}>
+        Export All Data
+      </button>
 
       <div>
         <Field label="Auto-archive closed jobs">
-          <input type="number" min={1} className={inputCls} value={months}
-            onChange={(e) => setMonths(Number(e.target.value) || 0)} />
+          <input
+            type="number"
+            min={1}
+            className={inputCls}
+            value={months}
+            onChange={(e) => setMonths(Number(e.target.value) || 0)}
+          />
           <p className="text-muted-foreground text-xs mt-1">
             Archive closed jobs after X months. Closed jobs older than this are hidden from active views.
           </p>
