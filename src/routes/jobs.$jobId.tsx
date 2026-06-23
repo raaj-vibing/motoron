@@ -322,6 +322,15 @@ function JobDetailPage() {
           <TimelineRow icon="🔧" label="Repair completed" value={formatDateTime(job.repair_completed_at)} />
           <TimelineRow icon="📤" label="Picked up" value={formatDateTime(job.picked_up_at)} />
           <TimelineRow icon="📅" label="Pickup requested" value={formatDate(job.pickup_requested_date)} />
+          {job.assigned_mechanic && (
+            <div className="flex items-center justify-between py-1.5 text-sm">
+              <span className="text-white">
+                <span className="mr-2" aria-hidden>👤</span>
+                Assigned mechanic
+              </span>
+              <span className="text-muted-foreground">{job.assigned_mechanic.name}</span>
+            </div>
+          )}
         </Section>
 
         <Section title="Financials">
