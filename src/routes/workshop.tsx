@@ -732,7 +732,179 @@ function ConfirmModal({
   );
 }
 
-// ---------- Section 5: Service Packages ----------
+// ---------- Section 5: Mechanics ----------
+function MechanicsSection() {
+  const fetch = useServerFn(listMechanics);
+  const create = useServerFn(createMechanic);
+  const upd = useServerFn(updateMechanic);
+  const del = useServerFn(deleteMechanic);
+  const [items, setItems] = useState<MechanicDTO[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  const reload = useCallback(
+    () =>
+      fetch()
+        .then(setItems)
+        .catch(() => toast.error("Failed to load")),
+    [fetch],
+  );
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  const saveEdit = async () => {
+    if (!editingId || !editName.trim()) {
+      setEditingId(null);
+      return;
+    }
+    try {
+      await upd({ data: { id: editingId, name: editName } });
+      setEditingId(null);
+      await reload();
+      toast.success("Saved");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
+
+  const addNew = async () => {
+    if (!newName.trim()) return;
+    try {
+      await create({ data: { name: newName } });
+      setNewName("");
+      setShowAdd(false);
+      await reload();
+      toast.success("Added");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
+
+  const toggleActive = async (m: MechanicDTO) => {
+    try {
+      await upd({ data: { id: m.id, is_active: !m.is_active } });
+      await reload();
+      toast.success(m.is_active ? "Deactivated" : "Activated");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
+
+  const onDelete = async (id: string) => {
+    try {
+      await del({ data: { id } });
+      setConfirmId(null);
+      await reload();
+      toast.success("Deleted");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
+
+  const confirmMech = items.find((p) => p.id === confirmId);
+
+  return (
+    <div className="space-y-3">
+      {items.map((m) => (
+        <div key={m.id} className="rounded-lg bg-background border border-border">
+          {editingId === m.id ? (
+            <div className="p-3 space-y-2">
+              <input
+                className={inputCls}
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Mechanic name"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setEditingId(null)}
+                  className="h-10 rounded-lg border border-border text-foreground text-sm"
+                >
+                  Cancel
+                </button>
+                <button onClick={saveEdit} className="h-10 rounded-lg bg-primary text-white font-bold text-sm">
+                  Save
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 p-3">
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-foreground text-sm truncate">{m.name}</div>
+                <div className="flex items-center gap-2 mt-1">
+                  <Pill color={m.is_active ? "green" : "grey"}>{m.is_active ? "Active" : "Inactive"}</Pill>
+                  <button
+                    onClick={() => toggleActive(m)}
+                    className="text-[11px] font-bold text-primary underline"
+                  >
+                    {m.is_active ? "Deactivate" : "Activate"}
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingId(m.id);
+                  setEditName(m.name);
+                }}
+                className="p-2 text-muted-foreground"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+              <button onClick={() => setConfirmId(m.id)} className="p-2 text-destructive">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {showAdd ? (
+        <div className="rounded-lg bg-background border border-dashed border-primary p-3 space-y-2">
+          <input
+            className={inputCls}
+            placeholder="Mechanic name"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setShowAdd(false)}
+              className="h-10 rounded-lg border border-border text-foreground text-sm"
+            >
+              Cancel
+            </button>
+            <button onClick={addNew} className="h-10 rounded-lg bg-primary text-white font-bold text-sm">
+              Add
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowAdd(true)}
+          className="w-full h-12 rounded-lg border-2 border-dashed border-primary text-primary font-bold text-sm flex items-center justify-center gap-2"
+        >
+          <Plus className="w-4 h-4" /> Add Mechanic
+        </button>
+      )}
+
+      {confirmMech && (
+        <ConfirmModal
+          title={`Delete ${confirmMech.name}?`}
+          body="This cannot be undone."
+          confirmLabel="Delete"
+          onCancel={() => setConfirmId(null)}
+          onConfirm={() => onDelete(confirmMech.id)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------- Section 6: Service Packages ----------
 function PackagesSection() {
   const fetch = useServerFn(listServicePackages);
   const create = useServerFn(createServicePackage);
