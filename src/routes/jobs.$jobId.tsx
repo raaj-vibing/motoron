@@ -459,6 +459,17 @@ function JobDetailPage() {
         />
       )}
 
+      {startWorkSheet && (
+        <StartWorkSheet
+          mechanics={mechanics}
+          assignedMechanicId={assignedMechanicId}
+          setAssignedMechanicId={setAssignedMechanicId}
+          onClose={() => setStartWorkSheet(false)}
+          onConfirm={startWork}
+          loading={startingWork}
+        />
+      )}
+
       {confirmClose && (
         <ConfirmCloseDialog
           onCancel={() => setConfirmClose(false)}
