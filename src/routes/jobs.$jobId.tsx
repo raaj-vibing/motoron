@@ -617,3 +617,68 @@ function ConfirmCloseDialog({
     </div>
   );
 }
+
+function StartWorkSheet({
+  mechanics,
+  assignedMechanicId,
+  setAssignedMechanicId,
+  onClose,
+  onConfirm,
+  loading,
+}: {
+  mechanics: MechanicDTO[];
+  assignedMechanicId: string | null;
+  setAssignedMechanicId: (id: string | null) => void;
+  onClose: () => void;
+  onConfirm: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60" />
+      <div
+        className="relative w-full bg-card rounded-t-2xl p-5 pb-[max(env(safe-area-inset-bottom),1rem)] border-t border-border"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="w-10 h-1 rounded-full bg-border mx-auto mb-4" />
+        <h3 className="text-white font-display text-xl tracking-wide mb-1">Start Work</h3>
+        <p className="text-muted-foreground text-xs mb-4">Assign mechanic (optional)</p>
+
+        <div className="flex flex-wrap gap-2 mb-5">
+          {mechanics.map((m) => {
+            const selected = assignedMechanicId === m.id;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setAssignedMechanicId(selected ? null : m.id)}
+                className={[
+                  "px-4 py-2 rounded-full text-sm font-medium border transition",
+                  selected
+                    ? "bg-primary text-white border-primary"
+                    : "bg-background text-muted-foreground border-border",
+                ].join(" ")}
+              >
+                {m.name}
+              </button>
+            );
+          })}
+          {mechanics.length === 0 && (
+            <p className="text-muted-foreground text-xs">
+              No mechanics added yet. Add them in Workshop → Mechanics.
+            </p>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={loading}
+          className="w-full h-12 rounded-lg bg-primary text-white font-semibold text-sm active:scale-[0.98] transition disabled:opacity-60"
+        >
+          {loading ? "Starting…" : "Start Work"}
+        </button>
+      </div>
+    </div>
+  );
+}
