@@ -510,6 +510,7 @@ export type JobDetailDTO = {
   parts: JobDetailPart[];
   total_amount: number;
   prior_visits: PriorVisitDTO[];
+  assigned_mechanic: { id: string; name: string } | null;
   workshop: {
     id: string;
     name: string;
