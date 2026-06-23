@@ -7,9 +7,12 @@ import {
   getCurrentKioskUser,
   getJobDetail,
   updateJobStatus,
+  updateJobWorkflow,
   markNotificationSent,
+  listMechanics,
   type JobDetailDTO,
   type PriorVisitDTO,
+  type MechanicDTO,
 } from "@/lib/kiosk.functions";
 import { setJobDraft } from "@/lib/job-draft";
 
@@ -101,17 +104,28 @@ function JobDetailPage() {
   const navigate = useNavigate();
   const fetchJob = useServerFn(getJobDetail);
   const setStatus = useServerFn(updateJobStatus);
+  const setWorkflow = useServerFn(updateJobWorkflow);
+  const fetchMechanics = useServerFn(listMechanics);
   const markNotif = useServerFn(markNotificationSent);
 
   const [job, setJob] = useState<JobDetailDTO | null>(null);
+  const [mechanics, setMechanics] = useState<MechanicDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusSheet, setStatusSheet] = useState(false);
+  const [startWorkSheet, setStartWorkSheet] = useState(false);
+  const [assignedMechanicId, setAssignedMechanicId] = useState<string | null>(null);
+  const [startingWork, setStartingWork] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
 
   const load = async () => {
     try {
-      const res = await fetchJob({ data: { jobId } });
+      const [res, mechs] = await Promise.all([
+        fetchJob({ data: { jobId } }),
+        fetchMechanics(),
+      ]);
       setJob(res);
+      setMechanics(mechs.filter((m) => m.is_active));
+      setAssignedMechanicId(res.assigned_mechanic?.id ?? null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load job");
     } finally {
@@ -149,7 +163,37 @@ function JobDetailPage() {
       setConfirmClose(true);
       return;
     }
+    if (k === "in_progress") {
+      setStatusSheet(false);
+      setStartWorkSheet(true);
+      return;
+    }
     applyStatus(k);
+  };
+
+  const startWork = async () => {
+    if (!job) return;
+    setStartingWork(true);
+    try {
+      await setWorkflow({
+        data: {
+          jobId: job.id,
+          status: "in_progress",
+          assignedTo: assignedMechanicId || null,
+        },
+      });
+      const mech = mechanics.find((m) => m.id === assignedMechanicId) ?? null;
+      setJob({
+        ...job,
+        status: "in_progress",
+        assigned_mechanic: mech ? { id: mech.id, name: mech.name } : null,
+      });
+      setStartWorkSheet(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to start work");
+    } finally {
+      setStartingWork(false);
+    }
   };
 
   const sendDropoff = async () => {
@@ -278,6 +322,15 @@ function JobDetailPage() {
           <TimelineRow icon="🔧" label="Repair completed" value={formatDateTime(job.repair_completed_at)} />
           <TimelineRow icon="📤" label="Picked up" value={formatDateTime(job.picked_up_at)} />
           <TimelineRow icon="📅" label="Pickup requested" value={formatDate(job.pickup_requested_date)} />
+          {job.assigned_mechanic && (
+            <div className="flex items-center justify-between py-1.5 text-sm">
+              <span className="text-white">
+                <span className="mr-2" aria-hidden>👤</span>
+                Assigned mechanic
+              </span>
+              <span className="text-muted-foreground">{job.assigned_mechanic.name}</span>
+            </div>
+          )}
         </Section>
 
         <Section title="Financials">
@@ -403,6 +456,17 @@ function JobDetailPage() {
           current={job.status as StatusKey}
           onClose={() => setStatusSheet(false)}
           onPick={handleStatusPick}
+        />
+      )}
+
+      {startWorkSheet && (
+        <StartWorkSheet
+          mechanics={mechanics}
+          assignedMechanicId={assignedMechanicId}
+          setAssignedMechanicId={setAssignedMechanicId}
+          onClose={() => setStartWorkSheet(false)}
+          onConfirm={startWork}
+          loading={startingWork}
         />
       )}
 
@@ -549,6 +613,71 @@ function ConfirmCloseDialog({
             Yes, Close Job
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function StartWorkSheet({
+  mechanics,
+  assignedMechanicId,
+  setAssignedMechanicId,
+  onClose,
+  onConfirm,
+  loading,
+}: {
+  mechanics: MechanicDTO[];
+  assignedMechanicId: string | null;
+  setAssignedMechanicId: (id: string | null) => void;
+  onClose: () => void;
+  onConfirm: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60" />
+      <div
+        className="relative w-full bg-card rounded-t-2xl p-5 pb-[max(env(safe-area-inset-bottom),1rem)] border-t border-border"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="w-10 h-1 rounded-full bg-border mx-auto mb-4" />
+        <h3 className="text-white font-display text-xl tracking-wide mb-1">Start Work</h3>
+        <p className="text-muted-foreground text-xs mb-4">Assign mechanic (optional)</p>
+
+        <div className="flex flex-wrap gap-2 mb-5">
+          {mechanics.map((m) => {
+            const selected = assignedMechanicId === m.id;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setAssignedMechanicId(selected ? null : m.id)}
+                className={[
+                  "px-4 py-2 rounded-full text-sm font-medium border transition",
+                  selected
+                    ? "bg-primary text-white border-primary"
+                    : "bg-background text-muted-foreground border-border",
+                ].join(" ")}
+              >
+                {m.name}
+              </button>
+            );
+          })}
+          {mechanics.length === 0 && (
+            <p className="text-muted-foreground text-xs">
+              No mechanics added yet. Add them in Workshop → Mechanics.
+            </p>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={loading}
+          className="w-full h-12 rounded-lg bg-primary text-white font-semibold text-sm active:scale-[0.98] transition disabled:opacity-60"
+        >
+          {loading ? "Starting…" : "Start Work"}
+        </button>
       </div>
     </div>
   );

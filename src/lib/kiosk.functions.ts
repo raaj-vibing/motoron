@@ -510,6 +510,7 @@ export type JobDetailDTO = {
   parts: JobDetailPart[];
   total_amount: number;
   prior_visits: PriorVisitDTO[];
+  assigned_mechanic: { id: string; name: string } | null;
   workshop: {
     id: string;
     name: string;
@@ -528,14 +529,14 @@ export const getJobDetail = createServerFn({ method: "POST" })
     const { data: job, error } = await supabaseAdmin
       .from("job_cards")
       .select(
-        "id, job_number, status, payment_status, customer_complaint, mileage_at_dropoff, dropped_off_at, repair_completed_at, picked_up_at, pickup_requested_date, dropoff_notification_sent, completed_notification_sent, customer_id, vehicle_id, package_id, custom_package_amount",
+        "id, job_number, status, payment_status, customer_complaint, mileage_at_dropoff, dropped_off_at, repair_completed_at, picked_up_at, pickup_requested_date, dropoff_notification_sent, completed_notification_sent, customer_id, vehicle_id, package_id, custom_package_amount, assigned_mechanic_id",
       )
       .eq("id", data.jobId)
       .eq("workshop_id", workshopId)
       .maybeSingle();
     if (error || !job) throw new Error("Job not found");
 
-    const [custRes, vehRes, pkgRes, partsRes, priorRes, wsRes] = await Promise.all([
+    const [custRes, vehRes, pkgRes, partsRes, priorRes, wsRes, mechRes] = await Promise.all([
       job.customer_id
         ? supabaseAdmin.from("customers").select("id, name, phone, address").eq("id", job.customer_id).maybeSingle()
         : Promise.resolve({ data: null, error: null } as const),
@@ -565,6 +566,13 @@ export const getJobDetail = createServerFn({ method: "POST" })
             .limit(5)
         : Promise.resolve({ data: [], error: null } as const),
       supabaseAdmin.from("workshops").select("id, name, phone, maps_link, hours").eq("id", workshopId).maybeSingle(),
+      (job as any).assigned_mechanic_id
+        ? supabaseAdmin
+            .from("mechanics")
+            .select("id, name")
+            .eq("id", (job as any).assigned_mechanic_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null } as const),
     ]);
 
     const parts: JobDetailPart[] = ((partsRes.data ?? []) as any[]).map((p) => ({
@@ -605,6 +613,7 @@ export const getJobDetail = createServerFn({ method: "POST" })
       parts,
       total_amount: pkgAmt + partsAmt,
       prior_visits: (priorRes.data ?? []) as PriorVisitDTO[],
+      assigned_mechanic: (mechRes.data as any) ?? null,
       workshop: (wsRes.data as any) ?? { id: workshopId, name: "Workshop", phone: null, maps_link: null, hours: null },
     };
   });
@@ -634,6 +643,42 @@ export const updateJobStatus = createServerFn({ method: "POST" })
     if (error) {
       console.error("[updateJobStatus]", error.message);
       throw new Error("Failed to update status");
+    }
+    return { ok: true as const };
+  });
+
+// --- Protected: update job workflow (status + assigned mechanic) ---
+const updateWorkflowSchema = z.object({
+  jobId: z.string().uuid(),
+  status: z.enum(["pending", "in_progress", "repair_completed", "closed"]).optional(),
+  assignedTo: z.string().uuid().nullable().optional(),
+});
+
+export const updateJobWorkflow = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => updateWorkflowSchema.parse(input))
+  .handler(async ({ data }) => {
+    const user = await requireSessionUser();
+    const updates: {
+      status?: "pending" | "in_progress" | "repair_completed" | "closed";
+      repair_completed_at?: string;
+      picked_up_at?: string;
+      assigned_mechanic_id?: string | null;
+    } = {};
+    if (data.status !== undefined) {
+      updates.status = data.status;
+      if (data.status === "repair_completed") updates.repair_completed_at = new Date().toISOString();
+      if (data.status === "closed") updates.picked_up_at = new Date().toISOString();
+    }
+    if (data.assignedTo !== undefined) updates.assigned_mechanic_id = data.assignedTo;
+    if (Object.keys(updates).length === 0) return { ok: true as const };
+    const { error } = await supabaseAdmin
+      .from("job_cards")
+      .update(updates)
+      .eq("id", data.jobId)
+      .eq("workshop_id", user.workshop_id);
+    if (error) {
+      console.error("[updateJobWorkflow]", error.message);
+      throw new Error("Failed to update job");
     }
     return { ok: true as const };
   });
