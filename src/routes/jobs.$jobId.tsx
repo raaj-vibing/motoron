@@ -228,7 +228,6 @@ function JobDetailPage() {
     );
   }
 
-  const showClose = job.status === "repair_completed";
   const bothNotifSent =
     job.dropoff_notification_sent &&
     (job.status === "repair_completed" || job.status === "closed"
@@ -387,68 +386,100 @@ function JobDetailPage() {
 
       {/* Bottom fixed actions */}
       <div className="fixed inset-x-0 bottom-0 px-5 pt-3 pb-[max(env(safe-area-inset-bottom),1rem)] bg-background/95 backdrop-blur border-t border-border space-y-2">
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/jobs/$jobId_/invoice", params: { jobId: job.id } })}
-          className="w-full h-12 rounded-lg bg-primary text-white font-semibold text-sm active:scale-[0.98] transition"
-        >
-          View Invoice
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            if (!job.customer || !job.vehicle) {
-              toast.error("Cannot edit: job missing customer or vehicle");
-              return;
-            }
-            setJobDraft({
-              phone: job.customer.phone,
-              customer: {
-                id: job.customer.id,
-                name: job.customer.name,
-                phone: job.customer.phone,
-                address: job.customer.address,
-              },
-              address: job.customer.address,
-              vehicle: {
-                id: job.vehicle.id,
-                make: job.vehicle.make,
-                model: job.vehicle.model,
-                year: job.vehicle.year,
-                licence_plate: job.vehicle.licence_plate,
-                type: job.vehicle.type,
-                colour: job.vehicle.colour,
-                last_mileage: null,
-              },
-              editJobId: job.id,
-              initialComplaint: job.customer_complaint ?? "",
-              initialPickupDate: job.pickup_requested_date,
-              initialMileage: job.mileage_at_dropoff,
-              initialPackageId: job.package?.id ?? null,
-              initialCustomPackageAmount: job.custom_package_amount,
-              initialParts: job.parts.map((p) => ({
-                partName: p.part_name,
-                quantity: p.quantity,
-                unit: p.unit,
-                unitPrice: p.unit_price,
-                lineTotal: p.line_total,
-              })),
-            });
-            navigate({ to: "/jobs/new/vehicle" });
-          }}
-          className="w-full h-12 rounded-lg border-2 border-primary text-primary font-semibold text-sm active:scale-[0.98] transition"
-        >
-          Edit Job Card
-        </button>
-        {showClose && (
+        {/* PRIMARY WORKFLOW BUTTON — changes based on status */}
+        {job.status === "pending" && (
+          <button
+            type="button"
+            onClick={() => setStartWorkSheet(true)}
+            className="w-full h-14 rounded-lg bg-primary text-white font-bold text-base active:scale-[0.98] transition flex items-center justify-center gap-2"
+          >
+            🔧 Start Work
+          </button>
+        )}
+        {job.status === "in_progress" && (
+          <button
+            type="button"
+            onClick={() => handleStatusPick("repair_completed")}
+            className="w-full h-14 rounded-lg bg-green-600 text-white font-bold text-base active:scale-[0.98] transition flex items-center justify-center gap-2"
+          >
+            ✅ Mark Repair Complete
+          </button>
+        )}
+        {job.status === "repair_completed" && (
           <button
             type="button"
             onClick={() => setConfirmClose(true)}
-            className="w-full h-12 rounded-lg bg-primary text-white font-semibold text-sm active:scale-[0.98] transition"
+            className="w-full h-14 rounded-lg bg-primary text-white font-bold text-base active:scale-[0.98] transition flex items-center justify-center gap-2"
           >
-            Close Job
+            🔒 Close Job
           </button>
         )}
+        {job.status === "closed" && (
+          <div className="w-full h-14 rounded-lg bg-green-900/40 border border-green-700 flex items-center justify-center gap-2">
+            <span className="text-green-400 font-semibold text-sm">✓ Job Closed</span>
+          </div>
+        )}
+
+        {/* SECONDARY BUTTONS ROW */}
+        <div className="flex gap-2">
+          {/* View Invoice — always visible */}
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/jobs/$jobId_/invoice", params: { jobId: job.id } })}
+            className="flex-1 h-11 rounded-lg border-2 border-primary text-primary font-semibold text-sm active:scale-[0.98] transition"
+          >
+            View Invoice
+          </button>
+          {/* Edit Job Card — visible when not closed */}
+          {job.status !== "closed" && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!job.customer || !job.vehicle) {
+                  toast.error("Cannot edit: job missing customer or vehicle");
+                  return;
+                }
+                setJobDraft({
+                  phone: job.customer.phone,
+                  customer: {
+                    id: job.customer.id,
+                    name: job.customer.name,
+                    phone: job.customer.phone,
+                    address: job.customer.address,
+                  },
+                  address: job.customer.address,
+                  vehicle: {
+                    id: job.vehicle.id,
+                    make: job.vehicle.make,
+                    model: job.vehicle.model,
+                    year: job.vehicle.year,
+                    licence_plate: job.vehicle.licence_plate,
+                    type: job.vehicle.type,
+                    colour: job.vehicle.colour,
+                    last_mileage: null,
+                  },
+                  editJobId: job.id,
+                  initialComplaint: job.customer_complaint ?? "",
+                  initialPickupDate: job.pickup_requested_date,
+                  initialMileage: job.mileage_at_dropoff,
+                  initialPackageId: job.package?.id ?? null,
+                  initialCustomPackageAmount: job.custom_package_amount,
+                  initialParts: job.parts.map((p) => ({
+                    partName: p.part_name,
+                    quantity: p.quantity,
+                    unit: p.unit,
+                    unitPrice: p.unit_price,
+                    lineTotal: p.line_total,
+                  })),
+                });
+                navigate({ to: "/jobs/new/vehicle" });
+              }}
+              className="flex-1 h-11 rounded-lg bg-card border border-border text-muted-foreground font-semibold text-sm active:scale-[0.98] transition"
+            >
+              Edit Job Card
+            </button>
+          )}
+        </div>
       </div>
 
       {statusSheet && (
