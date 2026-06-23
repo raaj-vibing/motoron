@@ -613,6 +613,7 @@ export const getJobDetail = createServerFn({ method: "POST" })
       parts,
       total_amount: pkgAmt + partsAmt,
       prior_visits: (priorRes.data ?? []) as PriorVisitDTO[],
+      assigned_mechanic: (mechRes.data as any) ?? null,
       workshop: (wsRes.data as any) ?? { id: workshopId, name: "Workshop", phone: null, maps_link: null, hours: null },
     };
   });
