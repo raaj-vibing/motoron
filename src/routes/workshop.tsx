@@ -734,171 +734,171 @@ function ConfirmModal({
 
 // ---------- Section 5: Mechanics ----------
 function MechanicsSection() {
-  const fetch = useServerFn(listMechanics);
-  const create = useServerFn(createMechanic);
-  const upd = useServerFn(updateMechanic);
-  const del = useServerFn(deleteMechanic);
-  const [items, setItems] = useState<MechanicDTO[]>([]);
+  const fetchMechanics = useServerFn(listMechanics);
+  const addMechanic = useServerFn(createMechanic);
+  const editMechanic = useServerFn(updateMechanic);
+  const removeMechanic = useServerFn(deleteMechanic);
+
+  const [mechanics, setMechanics] = useState<MechanicDTO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newName, setNewName] = useState("");
+  const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
-  const [showAdd, setShowAdd] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [confirmId, setConfirmId] = useState<string | null>(null);
 
-  const reload = useCallback(
-    () =>
-      fetch()
-        .then(setItems)
-        .catch(() => toast.error("Failed to load")),
-    [fetch],
-  );
-  useEffect(() => {
-    reload();
-  }, [reload]);
-
-  const saveEdit = async () => {
-    if (!editingId || !editName.trim()) {
-      setEditingId(null);
-      return;
-    }
+  const load = async () => {
     try {
-      await upd({ data: { id: editingId, name: editName } });
-      setEditingId(null);
-      await reload();
-      toast.success("Saved");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed");
+      const data = await fetchMechanics();
+      setMechanics(data);
+    } catch {
+      toast.error("Failed to load mechanics");
+    } finally {
+      setLoading(false);
     }
   };
+  useEffect(() => { load(); }, []);
 
-  const addNew = async () => {
+  const handleAdd = async () => {
     if (!newName.trim()) return;
     try {
-      await create({ data: { name: newName } });
+      const m = await addMechanic({ data: { name: newName.trim() } });
+      setMechanics((p) => [...p, m]);
       setNewName("");
-      setShowAdd(false);
-      await reload();
-      toast.success("Added");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed");
+      setAdding(false);
+      toast.success(`${m.name} added`);
+    } catch {
+      toast.error("Failed to add mechanic");
     }
   };
 
-  const toggleActive = async (m: MechanicDTO) => {
+  const handleEdit = async (id: string) => {
+    if (!editName.trim()) return;
     try {
-      await upd({ data: { id: m.id, is_active: !m.is_active } });
-      await reload();
-      toast.success(m.is_active ? "Deactivated" : "Activated");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed");
+      await editMechanic({ data: { id, name: editName.trim() } });
+      setMechanics((p) => p.map((m) => m.id === id ? { ...m, name: editName.trim() } : m));
+      setEditingId(null);
+      toast.success("Updated");
+    } catch {
+      toast.error("Failed to update");
     }
   };
 
-  const onDelete = async (id: string) => {
+  const handleToggleActive = async (m: MechanicDTO) => {
     try {
-      await del({ data: { id } });
-      setConfirmId(null);
-      await reload();
-      toast.success("Deleted");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed");
+      await editMechanic({ data: { id: m.id, is_active: !m.is_active } });
+      setMechanics((p) => p.map((x) => x.id === m.id ? { ...x, is_active: !m.is_active } : x));
+    } catch {
+      toast.error("Failed to update");
     }
   };
 
-  const confirmMech = items.find((p) => p.id === confirmId);
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Remove ${name} from mechanics list?`)) return;
+    try {
+      await removeMechanic({ data: { id } });
+      setMechanics((p) => p.filter((m) => m.id !== id));
+      toast.success(`${name} removed`);
+    } catch {
+      toast.error("Failed to remove");
+    }
+  };
+
+  if (loading) return <p className="text-muted-foreground text-sm">Loading…</p>;
 
   return (
     <div className="space-y-3">
-      {items.map((m) => (
-        <div key={m.id} className="rounded-lg bg-background border border-border">
-          {editingId === m.id ? (
-            <div className="p-3 space-y-2">
-              <input
-                className={inputCls}
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                placeholder="Mechanic name"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setEditingId(null)}
-                  className="h-10 rounded-lg border border-border text-foreground text-sm"
-                >
-                  Cancel
-                </button>
-                <button onClick={saveEdit} className="h-10 rounded-lg bg-primary text-white font-bold text-sm">
-                  Save
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 p-3">
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-foreground text-sm truncate">{m.name}</div>
-                <div className="flex items-center gap-2 mt-1">
-                  <Pill color={m.is_active ? "green" : "grey"}>{m.is_active ? "Active" : "Inactive"}</Pill>
-                  <button
-                    onClick={() => toggleActive(m)}
-                    className="text-[11px] font-bold text-primary underline"
-                  >
-                    {m.is_active ? "Deactivate" : "Activate"}
-                  </button>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setEditingId(m.id);
-                  setEditName(m.name);
-                }}
-                className="p-2 text-muted-foreground"
-              >
-                <Pencil className="w-4 h-4" />
-              </button>
-              <button onClick={() => setConfirmId(m.id)} className="p-2 text-destructive">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-        </div>
-      ))}
+      <p className="text-muted-foreground text-[13px]">
+        Add your mechanics here. They appear in the job workflow for assignment.
+        Mechanics do not have app access — owner only.
+      </p>
 
-      {showAdd ? (
-        <div className="rounded-lg bg-background border border-dashed border-primary p-3 space-y-2">
+      {/* Mechanics list */}
+      {mechanics.length === 0 && !adding && (
+        <p className="text-muted-foreground text-sm text-center py-4">
+          No mechanics yet. Add your first one below.
+        </p>
+      )}
+
+      <ul className="space-y-2">
+        {mechanics.map((m) => (
+          <li key={m.id} className="flex items-center gap-3 bg-background rounded-lg px-4 py-3 border border-border">
+            {editingId === m.id ? (
+              <>
+                <input
+                  className="flex-1 bg-transparent text-white text-sm outline-none border-b border-primary pb-0.5"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleEdit(m.id); if (e.key === "Escape") setEditingId(null); }}
+                  autoFocus
+                />
+                <button onClick={() => handleEdit(m.id)} className="text-primary text-sm font-semibold">Save</button>
+                <button onClick={() => setEditingId(null)} className="text-muted-foreground text-sm">Cancel</button>
+              </>
+            ) : (
+              <>
+                {/* Active dot */}
+                <span className={["w-2 h-2 rounded-full shrink-0", m.is_active ? "bg-green-500" : "bg-muted"].join(" ")} />
+                <span className={["flex-1 text-sm font-medium", m.is_active ? "text-white" : "text-muted-foreground line-through"].join(" ")}>
+                  {m.name}
+                </span>
+                {/* Toggle active */}
+                <button
+                  onClick={() => handleToggleActive(m)}
+                  className="text-xs text-muted-foreground border border-border rounded px-2 py-1 hover:border-primary hover:text-primary transition"
+                >
+                  {m.is_active ? "Deactivate" : "Activate"}
+                </button>
+                {/* Edit */}
+                <button
+                  onClick={() => { setEditingId(m.id); setEditName(m.name); }}
+                  className="text-muted-foreground hover:text-primary transition"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                {/* Delete */}
+                <button
+                  onClick={() => handleDelete(m.id, m.name)}
+                  className="text-muted-foreground hover:text-destructive transition"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      {/* Add new mechanic */}
+      {adding ? (
+        <div className="flex gap-2 mt-2">
           <input
-            className={inputCls}
-            placeholder="Mechanic name"
+            className="flex-1 h-11 bg-background border border-border rounded-lg px-3 text-white text-sm outline-none focus:border-primary"
+            placeholder="Mechanic name e.g. Ravi Kumar"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
+            autoFocus
           />
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setShowAdd(false)}
-              className="h-10 rounded-lg border border-border text-foreground text-sm"
-            >
-              Cancel
-            </button>
-            <button onClick={addNew} className="h-10 rounded-lg bg-primary text-white font-bold text-sm">
-              Add
-            </button>
-          </div>
+          <button
+            onClick={handleAdd}
+            className="h-11 px-4 bg-primary text-white rounded-lg text-sm font-semibold"
+          >
+            Add
+          </button>
+          <button
+            onClick={() => { setAdding(false); setNewName(""); }}
+            className="h-11 px-3 border border-border text-muted-foreground rounded-lg text-sm"
+          >
+            Cancel
+          </button>
         </div>
       ) : (
         <button
-          onClick={() => setShowAdd(true)}
-          className="w-full h-12 rounded-lg border-2 border-dashed border-primary text-primary font-bold text-sm flex items-center justify-center gap-2"
+          onClick={() => setAdding(true)}
+          className="w-full h-11 border border-dashed border-primary text-primary rounded-lg text-sm font-semibold hover:bg-primary/5 transition"
         >
-          <Plus className="w-4 h-4" /> Add Mechanic
+          + Add Mechanic
         </button>
-      )}
-
-      {confirmMech && (
-        <ConfirmModal
-          title={`Delete ${confirmMech.name}?`}
-          body="This cannot be undone."
-          confirmLabel="Delete"
-          onCancel={() => setConfirmId(null)}
-          onConfirm={() => onDelete(confirmMech.id)}
-        />
       )}
     </div>
   );
