@@ -104,17 +104,28 @@ function JobDetailPage() {
   const navigate = useNavigate();
   const fetchJob = useServerFn(getJobDetail);
   const setStatus = useServerFn(updateJobStatus);
+  const setWorkflow = useServerFn(updateJobWorkflow);
+  const fetchMechanics = useServerFn(listMechanics);
   const markNotif = useServerFn(markNotificationSent);
 
   const [job, setJob] = useState<JobDetailDTO | null>(null);
+  const [mechanics, setMechanics] = useState<MechanicDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusSheet, setStatusSheet] = useState(false);
+  const [startWorkSheet, setStartWorkSheet] = useState(false);
+  const [assignedMechanicId, setAssignedMechanicId] = useState<string | null>(null);
+  const [startingWork, setStartingWork] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
 
   const load = async () => {
     try {
-      const res = await fetchJob({ data: { jobId } });
+      const [res, mechs] = await Promise.all([
+        fetchJob({ data: { jobId } }),
+        fetchMechanics(),
+      ]);
       setJob(res);
+      setMechanics(mechs.filter((m) => m.is_active));
+      setAssignedMechanicId(res.assigned_mechanic?.id ?? null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load job");
     } finally {
@@ -152,7 +163,37 @@ function JobDetailPage() {
       setConfirmClose(true);
       return;
     }
+    if (k === "in_progress") {
+      setStatusSheet(false);
+      setStartWorkSheet(true);
+      return;
+    }
     applyStatus(k);
+  };
+
+  const startWork = async () => {
+    if (!job) return;
+    setStartingWork(true);
+    try {
+      await setWorkflow({
+        data: {
+          jobId: job.id,
+          status: "in_progress",
+          assignedTo: assignedMechanicId || null,
+        },
+      });
+      const mech = mechanics.find((m) => m.id === assignedMechanicId) ?? null;
+      setJob({
+        ...job,
+        status: "in_progress",
+        assigned_mechanic: mech ? { id: mech.id, name: mech.name } : null,
+      });
+      setStartWorkSheet(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to start work");
+    } finally {
+      setStartingWork(false);
+    }
   };
 
   const sendDropoff = async () => {
