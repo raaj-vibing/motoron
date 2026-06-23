@@ -529,7 +529,7 @@ export const getJobDetail = createServerFn({ method: "POST" })
     const { data: job, error } = await supabaseAdmin
       .from("job_cards")
       .select(
-        "id, job_number, status, payment_status, customer_complaint, mileage_at_dropoff, dropped_off_at, repair_completed_at, picked_up_at, pickup_requested_date, dropoff_notification_sent, completed_notification_sent, customer_id, vehicle_id, package_id, custom_package_amount",
+        "id, job_number, status, payment_status, customer_complaint, mileage_at_dropoff, dropped_off_at, repair_completed_at, picked_up_at, pickup_requested_date, dropoff_notification_sent, completed_notification_sent, customer_id, vehicle_id, package_id, custom_package_amount, assigned_mechanic_id",
       )
       .eq("id", data.jobId)
       .eq("workshop_id", workshopId)
