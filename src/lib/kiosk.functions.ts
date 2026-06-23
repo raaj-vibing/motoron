@@ -647,6 +647,42 @@ export const updateJobStatus = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+// --- Protected: update job workflow (status + assigned mechanic) ---
+const updateWorkflowSchema = z.object({
+  jobId: z.string().uuid(),
+  status: z.enum(["pending", "in_progress", "repair_completed", "closed"]).optional(),
+  assignedTo: z.string().uuid().nullable().optional(),
+});
+
+export const updateJobWorkflow = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => updateWorkflowSchema.parse(input))
+  .handler(async ({ data }) => {
+    const user = await requireSessionUser();
+    const updates: {
+      status?: "pending" | "in_progress" | "repair_completed" | "closed";
+      repair_completed_at?: string;
+      picked_up_at?: string;
+      assigned_mechanic_id?: string | null;
+    } = {};
+    if (data.status !== undefined) {
+      updates.status = data.status;
+      if (data.status === "repair_completed") updates.repair_completed_at = new Date().toISOString();
+      if (data.status === "closed") updates.picked_up_at = new Date().toISOString();
+    }
+    if (data.assignedTo !== undefined) updates.assigned_mechanic_id = data.assignedTo;
+    if (Object.keys(updates).length === 0) return { ok: true as const };
+    const { error } = await supabaseAdmin
+      .from("job_cards")
+      .update(updates)
+      .eq("id", data.jobId)
+      .eq("workshop_id", user.workshop_id);
+    if (error) {
+      console.error("[updateJobWorkflow]", error.message);
+      throw new Error("Failed to update job");
+    }
+    return { ok: true as const };
+  });
+
 // --- Protected: mark notification sent ---
 const markNotifSchema = z.object({
   jobId: z.string().uuid(),
